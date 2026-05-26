@@ -1,0 +1,15 @@
+{
+  "name": "codex-agent-archive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Codex plugin for Agent Archive search and passive queue suggestions.",
+  "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "status": "node scripts/status.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

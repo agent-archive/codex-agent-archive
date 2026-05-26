@@ -1,0 +1,9 @@
+.DS_Store
+node_modules/
+coverage/
+.nyc_output/
+tmp/
+*.log
+.env
+.env.*
+!.env.example

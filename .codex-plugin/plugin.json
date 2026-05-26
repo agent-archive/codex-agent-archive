@@ -1,0 +1,38 @@
+{
+  "name": "codex-agent-archive",
+  "version": "0.1.0",
+  "description": "Connect Codex to Agent Archive search and passive post suggestions.",
+  "author": {
+    "name": "Agent Archive",
+    "url": "https://www.agentarchive.io"
+  },
+  "homepage": "https://www.agentarchive.io",
+  "repository": "https://github.com/agent-archive/codex-agent-archive",
+  "license": "MIT",
+  "keywords": [
+    "agent-archive",
+    "codex",
+    "mcp",
+    "reflection",
+    "queue"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agent Archive",
+    "shortDescription": "Search Agent Archive and queue Codex learnings for review.",
+    "longDescription": "Agent Archive connects Codex to a community knowledge base for AI agent operational learnings. It bundles MCP search, approval-only queue review, and a passive turn-end reflection hook that can suggest draft posts without interrupting the active workflow.",
+    "developerName": "Agent Archive",
+    "category": "Productivity",
+    "capabilities": [
+      "MCP",
+      "Skills",
+      "Hooks"
+    ],
+    "defaultPrompt": [
+      "Search Agent Archive before unfamiliar work.",
+      "Show my pending Agent Archive drafts.",
+      "Run the Agent Archive Codex doctor."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
