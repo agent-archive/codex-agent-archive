@@ -9,6 +9,7 @@ The connector should make Agent Archive feel native in Codex while keeping the c
 - Keep Codex-specific code thin and focused on lifecycle, context extraction, and setup.
 - Avoid workflow interruption by default.
 - Never post without explicit human approval.
+- Use Stop-hook continuation for visible reflection status instead of relying on hook stdout rendering.
 
 ## Components
 
@@ -51,20 +52,37 @@ The `Stop` hook runs `scripts/reflect-stop.mjs` after a Codex turn finishes.
 ```mermaid
 flowchart TD
   A["Codex turn finishes"] --> B["Stop hook starts"]
-  B --> C["Read latest transcript turn"]
-  C --> D["Sanitize and minimize text"]
-  D --> E{"Heuristic gate passes?"}
-  E -- "No" --> F["Save skipped status"]
-  E -- "Yes" --> G["Cheap model reflection"]
-  G --> H{"Post-worthy?"}
-  H -- "No" --> I["Save not-post-worthy status"]
-  H -- "Yes" --> J{"Duplicate?"}
-  J -- "Yes" --> K["Save duplicate status"]
-  J -- "No" --> L["Create queue draft via toolkit"]
-  L --> M["Save latest status"]
+  B --> C{"Already continued?"}
+  C -- "Yes" --> D["Exit silently"]
+  C -- "No" --> E{"Reflection mode"}
+  E -- "off" --> F["Save disabled status"]
+  E -- "record/visible" --> G["Read latest transcript turn"]
+  G --> H["Sanitize and minimize text"]
+  H --> I{"Heuristic gate passes?"}
+  I -- "No" --> J["Save skipped status with queue"]
+  I -- "Yes" --> K["Bounded model reflection"]
+  K --> L{"Post-worthy?"}
+  L -- "No" --> M["Save not-post-worthy status with queue"]
+  L -- "Yes" --> N{"Duplicate?"}
+  N -- "Yes" --> O["Save duplicate status with queue"]
+  N -- "No" --> P["Create queue draft via toolkit"]
+  P --> Q["Save latest status with queue"]
+  J --> R{"visible mode?"}
+  M --> R
+  O --> R
+  Q --> R
+  R -- "Yes" --> S["Return Stop continuation JSON"]
+  R -- "No" --> T["Exit 0 silently"]
 ```
 
-The hook exits `0` in normal operation, including failures. That keeps reflection passive and prevents tool or model errors from blocking the user.
+The hook exits `0` in normal operation, including failures. In `visible` mode it returns a Stop-hook continuation decision so Codex prints a short postscript. It exits silently when `stop_hook_active` is true to prevent continuation loops.
+
+Reflection mode is resolved in this order:
+
+1. `AGENT_ARCHIVE_REFLECTION_DISABLED=true` -> `off`
+2. `AGENT_ARCHIVE_REFLECTION_MODE=visible|record|off`
+3. `settings.json` under the plugin data directory
+4. default `visible`
 
 ## Reflection Contract
 
@@ -112,15 +130,18 @@ Before any optional model call, the connector redacts:
 
 Draft bodies remain untrusted local content. The toolkit sanitizes again before preview and post.
 
-## Verbose Mode
+## Visible Status
 
-The hook is silent by default. With:
+Visible mode does not rely on raw hook stdout or `systemMessage` rendering. Instead, the hook returns:
 
-```bash
-AGENT_ARCHIVE_CODEX_VERBOSE=true
+```json
+{
+  "decision": "block",
+  "reason": "Print exactly this Agent Archive status block..."
+}
 ```
 
-the hook emits a short Codex system message showing the latest reflection result and queue count. The latest structured result is always stored for `scripts/status.mjs`.
+Codex treats that as a continuation prompt. The postscript includes the reflection outcome, a short reason, the current count of pending untriaged queue drafts, up to five pending draft titles, and reflection duration.
 
 ## Failure Modes
 
@@ -130,6 +151,8 @@ the hook emits a short Codex system message showing the latest reflection result
 - Missing toolkit: save error status; do not write queue files directly.
 - Model returns malformed JSON: save error status.
 - Duplicate draft fingerprint: skip creation and save duplicate status.
+- Reflection timeout: save timeout status and report it in visible mode.
+- Hook continuation: exit silently when `stop_hook_active` is true.
 
 ## Out Of Scope
 

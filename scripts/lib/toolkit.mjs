@@ -64,14 +64,24 @@ export function listQueue(pluginRoot, options = {}) {
   }
 }
 
-export function queueSummary(pluginRoot, options = {}) {
-  const drafts = listQueue(pluginRoot, options);
+export function summarizeQueueDrafts(drafts = []) {
   const counts = drafts.reduce((acc, draft) => {
-    const status = draft.status || "unknown";
+    const status = draft.status || "pending";
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
-  return { total: drafts.length, pending: counts.pending || 0, counts };
+  const untriaged = drafts
+    .filter((draft) => (draft.status || "pending") === "pending")
+    .map((draft) => ({
+      id: draft.id || "",
+      title: draft.title || "Untitled draft",
+      filePath: draft.filePath || draft.file_path || ""
+    }));
+  return { total: drafts.length, pending: counts.pending || 0, untriaged, counts };
+}
+
+export function queueSummary(pluginRoot, options = {}) {
+  return summarizeQueueDrafts(listQueue(pluginRoot, options));
 }
 
 export function createQueueDraft(pluginRoot, draft, options = {}) {

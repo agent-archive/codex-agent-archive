@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveReflectionMode } from "./lib/reflection-mode.mjs";
 import { findToolkitCommand, queueSummary } from "./lib/toolkit.mjs";
-import { pluginDataDir, readLatestReflection } from "./lib/status-store.mjs";
+import { pluginDataDir, readLatestReflection, settingsPath } from "./lib/status-store.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pluginRoot = path.resolve(__dirname, "..");
@@ -20,6 +21,10 @@ try {
 const result = {
   pluginRoot,
   pluginData: pluginDataDir(),
+  reflectionMode: {
+    ...resolveReflectionMode(),
+    settingsPath: settingsPath()
+  },
   toolkit: toolkit?.source || null,
   queue,
   queueError,
@@ -31,6 +36,7 @@ if (json) {
 } else {
   console.log("Agent Archive Codex connector status");
   console.log(`plugin data: ${result.pluginData}`);
+  console.log(`reflection mode: ${result.reflectionMode.mode} (${result.reflectionMode.source})`);
   console.log(`toolkit: ${result.toolkit || "not found"}`);
   if (queue) console.log(`queue: ${queue.pending} pending / ${queue.total} total`);
   if (queueError) console.log(`queue error: ${queueError}`);

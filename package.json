@@ -6,6 +6,7 @@
   "description": "Codex plugin for Agent Archive search and passive queue suggestions.",
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
+    "reflection-mode": "node scripts/reflection-mode.mjs",
     "status": "node scripts/status.mjs",
     "test": "node --test test/*.test.mjs"
   },

@@ -36,6 +36,10 @@ export function fingerprintsPath(env = process.env) {
   return path.join(pluginDataDir(env), "draft-fingerprints.json");
 }
 
+export function settingsPath(env = process.env) {
+  return path.join(pluginDataDir(env), "settings.json");
+}
+
 export function readLatestReflection(env = process.env) {
   return readJsonFile(latestReflectionPath(env), null);
 }
@@ -47,6 +51,15 @@ export function writeLatestReflection(result, env = process.env) {
 
 export function readFingerprints(env = process.env) {
   return readJsonFile(fingerprintsPath(env), []);
+}
+
+export function readSettings(env = process.env) {
+  return readJsonFile(settingsPath(env), {});
+}
+
+export function writeSettings(settings, env = process.env) {
+  ensurePluginDataDir(env);
+  writeJsonFile(settingsPath(env), settings);
 }
 
 export function rememberFingerprint(fingerprint, env = process.env) {

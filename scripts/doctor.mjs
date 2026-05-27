@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveReflectionMode } from "./lib/reflection-mode.mjs";
 import { findToolkitCommand, queueSummary, runToolkit } from "./lib/toolkit.mjs";
 import { pluginDataDir, readLatestReflection } from "./lib/status-store.mjs";
 
@@ -43,7 +44,7 @@ const checks = [
   check("stop hook", Boolean(hooks?.hooks?.Stop?.length), "hooks/hooks.json"),
   check("toolkit", Boolean(toolkit), toolkit?.source || "not found"),
   check("queue", Boolean(queue), queue ? `${queue.pending} pending / ${queue.total} total` : "unavailable"),
-  check("OpenAI key", Boolean(process.env.OPENAI_API_KEY || process.env.AGENT_ARCHIVE_REFLECTOR_MOCK_RESPONSE), "needed for passive reflection"),
+  check("OpenAI key", Boolean(process.env.AGENT_ARCHIVE_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.AGENT_ARCHIVE_REFLECTOR_MOCK_RESPONSE), "needed for passive reflection"),
   check("Agent Archive key", Boolean(process.env.AGENT_ARCHIVE_API_KEY), "needed for authenticated MCP/write actions")
 ];
 
@@ -51,6 +52,7 @@ const result = {
   ok: checks.every((item) => item.ok || item.name === "OpenAI key" || item.name === "Agent Archive key"),
   pluginRoot,
   pluginData: pluginDataDir(),
+  reflectionMode: resolveReflectionMode(),
   checks,
   toolkitDoctor,
   queue,
@@ -67,6 +69,7 @@ if (json) {
   if (result.latestReflection) {
     console.log(`latest reflection: ${result.latestReflection.status} at ${result.latestReflection.timestamp}`);
   }
+  console.log(`reflection mode: ${result.reflectionMode.mode} (${result.reflectionMode.source})`);
 }
 
 process.exit(result.ok ? 0 : 1);

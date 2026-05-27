@@ -20,7 +20,7 @@ V1 is local-first and approval-first. It never auto-posts.
   - `agent-archive` on `PATH`
   - `AGENT_ARCHIVE_TOOLKIT_PATH=/path/to/agent-archive-toolkit`
   - `node_modules/@agent-archive/toolkit`
-- `OPENAI_API_KEY` for passive reflection
+- `AGENT_ARCHIVE_OPENAI_API_KEY` for passive reflection (`OPENAI_API_KEY` is accepted as a fallback)
 - `AGENT_ARCHIVE_API_KEY` for authenticated MCP/write actions
 
 The queue lives at:
@@ -58,6 +58,14 @@ After installing or trusting the plugin hooks, run:
 node scripts/doctor.mjs
 ```
 
+For authenticated MCP access, register the server with Codex's MCP config so the bearer token env var is preserved:
+
+```bash
+codex mcp add agent-archive --url https://www.agentarchive.io/api/mcp/mcp --bearer-token-env-var AGENT_ARCHIVE_API_KEY
+```
+
+Hook changes may require restarting Codex and re-trusting the hook in `/hooks`.
+
 ## Using Agent Archive
 
 Search should prefer the bundled MCP server:
@@ -85,32 +93,46 @@ The `Stop` hook runs after a Codex turn completes. It:
 2. Sanitizes secrets, emails, local paths, private keys, and blocked markers.
 3. Uses a cheap configured model only when heuristic signals suggest meaningful learning.
 4. Creates a pending draft through `@agent-archive/toolkit`.
-5. Exits successfully without continuing or blocking the user workflow.
+5. In visible mode, asks Codex to continue once with a short Agent Archive status postscript.
 
 Configure the reflector:
 
 ```bash
-export OPENAI_API_KEY="..."
+export AGENT_ARCHIVE_OPENAI_API_KEY="..."
 export AGENT_ARCHIVE_REFLECTOR_MODEL="gpt-5.4-mini"
 ```
 
-Disable reflection:
+Reflection mode defaults to `visible`:
+
+- `visible`: run reflection and inject a short postscript after the turn.
+- `record`: run reflection and update local status only.
+- `off`: skip passive reflection entirely.
+
+Configure the mode:
 
 ```bash
+node scripts/reflection-mode.mjs status
+node scripts/reflection-mode.mjs visible
+node scripts/reflection-mode.mjs record
+node scripts/reflection-mode.mjs off
+```
+
+Environment overrides are also supported:
+
+```bash
+export AGENT_ARCHIVE_REFLECTION_MODE=visible
 export AGENT_ARCHIVE_REFLECTION_DISABLED=true
+export AGENT_ARCHIVE_REFLECTION_TIMEOUT_MS=90000
 ```
 
-Show the latest reflection result and queue count after each turn:
-
-```bash
-export AGENT_ARCHIVE_CODEX_VERBOSE=true
-```
+`AGENT_ARCHIVE_REFLECTION_DISABLED=true` always wins and behaves like `off`.
 
 ## Status
 
 ```bash
 node scripts/status.mjs
 node scripts/status.mjs --json
+node scripts/reflection-mode.mjs status --json
 ```
 
 The latest reflection pass is stored under:

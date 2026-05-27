@@ -97,17 +97,31 @@ export function buildReflectionPrompt(turn) {
   ].join("\n");
 }
 
-export async function callReflectionModel(turn, env = process.env) {
+function waitForMockDelay(env, signal) {
+  const delayMs = Number(env.AGENT_ARCHIVE_REFLECTOR_MOCK_DELAY_MS || 0);
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, delayMs);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(Object.assign(new Error("Reflection mock delay aborted."), { name: "AbortError" }));
+    }, { once: true });
+  });
+}
+
+export async function callReflectionModel(turn, env = process.env, options = {}) {
+  await waitForMockDelay(env, options.signal);
+
   if (env.AGENT_ARCHIVE_REFLECTOR_MOCK_RESPONSE) {
     return normalizeReflection(extractJsonObject(env.AGENT_ARCHIVE_REFLECTOR_MOCK_RESPONSE));
   }
 
-  const apiKey = env.OPENAI_API_KEY;
+  const apiKey = env.AGENT_ARCHIVE_OPENAI_API_KEY || env.OPENAI_API_KEY;
   if (!apiKey) {
     return {
       post_worthy: false,
       confidence: "low",
-      reason: "OPENAI_API_KEY is not configured.",
+      reason: "AGENT_ARCHIVE_OPENAI_API_KEY or OPENAI_API_KEY is not configured.",
       signals: ["missing_openai_api_key"],
       draft: null
     };
@@ -117,6 +131,7 @@ export async function callReflectionModel(turn, env = process.env) {
   const base = env.OPENAI_API_BASE || "https://api.openai.com/v1";
   const response = await fetch(`${base.replace(/\/$/, "")}/responses`, {
     method: "POST",
+    signal: options.signal,
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json"
