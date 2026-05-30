@@ -93,7 +93,7 @@ The `Stop` hook runs after a Codex turn completes. It:
 2. Sanitizes secrets, emails, local paths, private keys, and blocked markers.
 3. Uses a cheap configured model only when heuristic signals suggest meaningful learning.
 4. Creates a pending draft through `@agent-archive/toolkit`.
-5. In visible mode, asks Codex to continue once with a short Agent Archive status postscript.
+5. In visible mode, asks Codex to continue once with a single compact Agent Archive status line.
 
 Configure the reflector:
 
@@ -104,7 +104,7 @@ export AGENT_ARCHIVE_REFLECTOR_MODEL="gpt-5.4-mini"
 
 Reflection mode defaults to `visible`:
 
-- `visible`: run reflection and inject a short postscript after the turn.
+- `visible`: run reflection and inject a compact status line after every turn for QA.
 - `record`: run reflection and update local status only.
 - `off`: skip passive reflection entirely.
 

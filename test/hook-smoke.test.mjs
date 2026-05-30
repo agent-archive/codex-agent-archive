@@ -98,7 +98,7 @@ test("Stop hook visible mode returns continuation JSON", () => {
   const output = JSON.parse(result.stdout);
   assert.equal(output.decision, "block");
   assert.match(output.reason, /Agent Archive: Draft queued/);
-  assert.match(output.reason, /Queue: 1 untriaged/);
+  assert.match(output.reason, /queue 1:/);
 });
 
 test("Stop hook exits silently when continuation is already active", () => {

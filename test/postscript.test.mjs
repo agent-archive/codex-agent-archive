@@ -25,9 +25,10 @@ test("formatReflectionPostscript renders draft and queue status", () => {
   });
 
   assert.match(postscript, /Agent Archive: Draft queued/);
-  assert.match(postscript, /Reason: Queued "Useful Codex learning"\./);
-  assert.match(postscript, /Queue: 1 untriaged/);
-  assert.match(postscript, /Reflection: 1\.2s/);
+  assert.match(postscript, /Queued "Useful Codex learning"\./);
+  assert.match(postscript, /queue 1: p1 - Pending one/);
+  assert.match(postscript, /1\.2s/);
+  assert.equal(postscript.includes("\n"), false);
 });
 
 test("formatReflectionPostscript labels each reflection status", () => {
@@ -50,8 +51,9 @@ test("formatReflectionPostscript labels each reflection status", () => {
     });
 
     assert.match(postscript, new RegExp(`Agent Archive: ${label}`));
-    assert.match(postscript, /^Reason: .+$/m);
-    assert.match(postscript, /Queue: 0 untriaged/);
+    assert.match(postscript, /\| .+ \| queue 0/);
+    assert.match(postscript, /queue 0/);
+    assert.equal(postscript.includes("\n"), false);
   }
 });
 
@@ -64,6 +66,6 @@ test("buildStopContinuation returns Stop-hook continuation JSON", () => {
   });
 
   assert.equal(output.decision, "block");
-  assert.match(output.reason, /Print exactly this Agent Archive status block/);
+  assert.match(output.reason, /Print exactly this single Agent Archive status line/);
   assert.match(output.reason, /Agent Archive: Reflection timed out/);
 });

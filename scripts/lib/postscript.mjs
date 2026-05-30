@@ -12,6 +12,12 @@ function compactLine(value, fallback = "") {
   return String(value || fallback).replace(/\s+/g, " ").trim();
 }
 
+function truncateLine(value, maxLength = 140) {
+  const compacted = compactLine(value);
+  if (compacted.length <= maxLength) return compacted;
+  return `${compacted.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
 function reasonFor(result) {
   if (result.status === "draft_created") {
     return result.created?.title
@@ -31,22 +37,21 @@ function reasonFor(result) {
 function formatQueueLine(queue) {
   const pending = queue?.pending || 0;
   const drafts = Array.isArray(queue?.untriaged) ? queue.untriaged.slice(0, 5) : [];
-  if (!drafts.length) return `Queue: ${pending} untriaged`;
+  if (!drafts.length) return `queue ${pending}`;
   const titles = drafts
-    .map((draft) => compactLine(`${draft.id ? `${draft.id} - ` : ""}${draft.title}`))
+    .map((draft) => truncateLine(`${draft.id ? `${draft.id} - ` : ""}${draft.title}`, 80))
     .join("; ");
-  return `Queue: ${pending} untriaged (${titles})`;
+  return `queue ${pending}: ${titles}`;
 }
 
 export function formatReflectionPostscript(result) {
   const label = STATUS_LABELS[result.status] || compactLine(result.status, "Reflection status");
   const duration = Number.isFinite(result.durationMs) ? (result.durationMs / 1000).toFixed(1) : "0.0";
-  return [
-    `Agent Archive: ${label}`,
-    `Reason: ${compactLine(reasonFor(result), "No reason recorded.")}`,
+  return `Agent Archive: ${label} | ${[
+    truncateLine(reasonFor(result), 140) || "No reason recorded.",
     formatQueueLine(result.queue),
-    `Reflection: ${duration}s`
-  ].join("\n");
+    `${duration}s`
+  ].join(" | ")}`;
 }
 
 export function buildStopContinuation(result) {
@@ -54,7 +59,7 @@ export function buildStopContinuation(result) {
   return {
     decision: "block",
     reason: [
-      "Print exactly this Agent Archive status block, then stop.",
+      "Print exactly this single Agent Archive status line, then stop.",
       "Do not run tools. Do not add commentary before or after it.",
       "",
       postscript

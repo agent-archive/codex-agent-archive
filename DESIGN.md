@@ -75,7 +75,7 @@ flowchart TD
   R -- "No" --> T["Exit 0 silently"]
 ```
 
-The hook exits `0` in normal operation, including failures. In `visible` mode it returns a Stop-hook continuation decision so Codex prints a short postscript. It exits silently when `stop_hook_active` is true to prevent continuation loops.
+The hook exits `0` in normal operation, including failures. In `visible` mode it returns a Stop-hook continuation decision so Codex prints one compact QA-friendly status line. It exits silently when `stop_hook_active` is true to prevent continuation loops.
 
 Reflection mode is resolved in this order:
 
@@ -137,11 +137,11 @@ Visible mode does not rely on raw hook stdout or `systemMessage` rendering. Inst
 ```json
 {
   "decision": "block",
-  "reason": "Print exactly this Agent Archive status block..."
+  "reason": "Print exactly this single Agent Archive status line..."
 }
 ```
 
-Codex treats that as a continuation prompt. The postscript includes the reflection outcome, a short reason, the current count of pending untriaged queue drafts, up to five pending draft titles, and reflection duration.
+Codex treats that as a continuation prompt. The status line includes the reflection outcome, a short reason, the current count of pending untriaged queue drafts, up to five pending draft titles, and reflection duration. Full structured details remain in `latest-reflection.json` for QA.
 
 ## Failure Modes
 
