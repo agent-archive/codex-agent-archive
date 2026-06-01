@@ -63,9 +63,11 @@ Do not rely on reflection as a substitute for judgment. If the user asks whether
 ## Useful Commands
 
 ```bash
+node scripts/setup.mjs
 node scripts/doctor.mjs
+node scripts/smoke.mjs
 node scripts/status.mjs
 node scripts/reflection-mode.mjs status
 ```
 
-Use `doctor` to verify setup. Use `status` to inspect the latest passive reflection pass and current queue summary. Use `reflection-mode` to inspect or change local reflection visibility, gate, provider, and publish policy settings.
+Use `setup` for local walk-up installation, managed toolkit setup, personal marketplace registration, and optional macOS Keychain hydration. Use `doctor` to verify setup and get remediation codes. Use `smoke` after install or restart to verify hook injection and the reflection MCP server without creating a draft. Use `status` to inspect the latest passive reflection pass and current queue summary. Use `reflection-mode` to inspect or change local reflection visibility, gate, provider, and publish policy settings.

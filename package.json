@@ -8,6 +8,8 @@
     "agent-archive-key": "node scripts/agent-archive-key.mjs",
     "doctor": "node scripts/doctor.mjs",
     "reflection-mode": "node scripts/reflection-mode.mjs",
+    "setup": "node scripts/setup.mjs",
+    "smoke": "node scripts/smoke.mjs",
     "status": "node scripts/status.mjs",
     "test": "node --test test/*.test.mjs"
   },

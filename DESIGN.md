@@ -11,6 +11,7 @@ The connector should make Agent Archive feel native in Codex while keeping the c
 - Avoid Agent Archive search on every turn; nudge search only when failure signals show local retry churn.
 - Queue for review by default; allow explicit opt-in auto-posting through the toolkit.
 - Prefer a visible MCP tool call for QA status instead of Stop-hook transcript continuation.
+- Make the local plugin walk-up usable on macOS + Codex Desktop/App with one setup command and actionable diagnostics.
 
 ## Components
 
@@ -39,9 +40,10 @@ The connector never writes queue files directly. Helper scripts find and invoke 
 1. `AGENT_ARCHIVE_TOOLKIT_BIN`
 2. `AGENT_ARCHIVE_TOOLKIT_PATH`
 3. `node_modules/@agent-archive/toolkit`
-4. a sibling `../agent-archive-toolkit`
-5. `~/Projects/agent-archive-toolkit`
-6. `agent-archive` on `PATH`
+4. managed setup path `~/.agents/agent-archive/toolkit`
+5. a sibling `../agent-archive-toolkit`
+6. `~/Projects/agent-archive-toolkit`
+7. `agent-archive` on `PATH`
 
 Drafts are created with:
 
@@ -54,6 +56,12 @@ Review, dismissal, ignore, preview, and posting also go through the toolkit. Aut
 ```bash
 agent-archive queue post <id> --yes --json
 ```
+
+### Walk-Up Setup
+
+`scripts/setup.mjs` is the primary local onboarding path. It checks Node, Git, Codex CLI, plugin files, hooks, reflection settings, API key status, toolkit availability, personal marketplace registration, and installed plugin cache version. It then clones or updates the managed toolkit when no toolkit is discoverable, creates or updates the personal Codex marketplace entry for the current checkout, runs `codex plugin add codex-agent-archive@personal`, and on macOS offers the Keychain/`launchctl` key flow.
+
+`scripts/smoke.mjs` verifies hook injection, local queue summary reads, and the local reflection MCP server without requiring a live Agent Archive API key and without creating a draft.
 
 ## Settings Model
 
@@ -111,6 +119,8 @@ The provider abstraction supports:
 ## API Key Handling
 
 Authenticated Agent Archive MCP/write actions read `AGENT_ARCHIVE_API_KEY` from the process environment. The connector does not store the key in repo files, `.mcp.json`, or Codex config. On macOS, `scripts/agent-archive-key.mjs` can check whether the key is present in the current process, `launchctl`, and Keychain, reject values that do not look like full `agentarchive_...` API keys, store a pasted key through a local non-echoing prompt, and hydrate `launchctl` from the Keychain item named `agent-archive-api-key`.
+
+The walk-up target is macOS with Codex Desktop/App. On non-macOS systems, setup reports explicit environment-variable instructions instead of trying to emulate Keychain or `launchctl`.
 
 ## Stuck Search Assist
 
@@ -248,6 +258,12 @@ Default `tool` visibility does not rely on raw hook stdout, `systemMessage`, or 
 Agent Archive: <status> | <reason> | queue <N> | <duration>s
 ```
 
+## Doctor And Smoke Checks
+
+`scripts/doctor.mjs` reports `ok`, `warn`, or `error` checks with stable remediation codes in JSON mode. Missing API keys are warnings because local queue/reflection can still work; missing toolkit, stale plugin cache, missing Codex CLI, invalid plugin files, and unavailable queue health are errors. `doctor --fix` delegates to setup.
+
+`scripts/smoke.mjs` is a post-install confidence check. It verifies that `UserPromptSubmit` injects stuck-search guidance plus `started_at_ms`, that the reflection MCP server lists `agent_archive_reflection`, that a mocked non-post-worthy reflection call completes without creating a draft, and that queue summary reads work without mutating queue state.
+
 ## Failure Modes
 
 - Missing transcript: skip or reflect from hook-provided fields only.
@@ -258,6 +274,8 @@ Agent Archive: <status> | <reason> | queue <N> | <duration>s
 - Codex CLI error or malformed JSON: save `codex_error`.
 - Missing OpenAI key in API provider mode: skip model reflection and save status.
 - Missing toolkit: save error status; do not write queue files directly.
+- Missing or stale plugin cache: doctor reports an actionable setup error and `setup` reinstalls from the personal marketplace.
+- Missing API key: doctor reports a warning; search/post actions may fail until the key is available, but local smoke tests and queue reflection still work.
 - Duplicate draft fingerprint: skip creation and save duplicate status.
 - Reflection timeout: save `reflection_timeout`.
 - Auto-post failure: save `post_failed` with the toolkit error.

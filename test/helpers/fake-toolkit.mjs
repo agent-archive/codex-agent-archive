@@ -22,7 +22,9 @@ function option(args, name) {
 }
 const args = process.argv.slice(2);
 if (args[0] !== "queue") throw new Error("expected queue command");
-if (args[1] === "list") {
+if (args[1] === "doctor") {
+  process.stdout.write(JSON.stringify({ ok: true, queueDir: path.join(process.env.HOME || process.cwd(), ".agents", "agent-archive", "pending-posts") }));
+} else if (args[1] === "list") {
   process.stdout.write(JSON.stringify(readState().drafts));
 } else if (args[1] === "create") {
   const state = readState();

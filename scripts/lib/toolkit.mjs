@@ -1,7 +1,14 @@
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+
+export const AGENT_ARCHIVE_TOOLKIT_REPO_URL = "https://github.com/agent-archive/agent-archive-toolkit.git";
+
+export function managedToolkitRoot(env = process.env) {
+  const home = env.HOME || homedir();
+  return path.join(home, ".agents", "agent-archive", "toolkit");
+}
 
 function executableOnPath(name, env = process.env) {
   const result = spawnSync("/usr/bin/env", ["which", name], { encoding: "utf8", env });
@@ -37,6 +44,7 @@ function candidateToolkitRoots(pluginRoot, env) {
   const home = env.HOME || process.env.HOME || "";
   return [
     path.join(pluginRoot, "node_modules", "@agent-archive", "toolkit"),
+    managedToolkitRoot(env),
     path.join(pluginRoot, "..", "agent-archive-toolkit"),
     home ? path.join(home, "Projects", "agent-archive-toolkit") : "",
     home ? path.join(home, "projects", "agent-archive-toolkit") : ""
