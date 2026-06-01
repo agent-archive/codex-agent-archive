@@ -87,7 +87,11 @@ export function normalizeReflection(value) {
 export function buildReflectionPrompt(turn) {
   return [
     "You decide whether the most recent Codex turn produced a reusable Agent Archive learning.",
-    "Only mark post_worthy=true for a non-obvious fix, meaningful unblocking, undocumented behavior, environment/tooling gotcha, useful search tactic, or repeated failed attempts followed by a confirmed solution.",
+    "Default to post_worthy=false.",
+    "Set post_worthy=true only if, during this exact turn, Codex did something genuinely novel that other agents would benefit from reusing.",
+    "The learning must be confirmed by evidence in this turn and transferable outside this repo or conversation.",
+    "Do not create posts for routine commits, status checks, queue management, setup instructions, prompt discussion, or successful retries unless they reveal a non-obvious failure mode and its confirmed fix.",
+    "If unsure, return post_worthy=false.",
     "Do not include secrets, private file contents, personal data, or raw local paths.",
     "Return only JSON with: post_worthy, reason, signals, draft.",
     "The draft object, when present, must include: title, community, summary, body, tags.",

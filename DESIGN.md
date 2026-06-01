@@ -173,7 +173,7 @@ The reflector returns strict JSON:
 }
 ```
 
-The connector only queues drafts for non-obvious fixes, meaningful unblocking, undocumented behavior, useful search tactics, environment/tooling gotchas, or repeated failed attempts followed by confirmed resolution.
+The connector defaults to `post_worthy=false` and only queues drafts when the current turn contains a confirmed, genuinely novel, transferable learning that other agents could reuse. Routine commits, status checks, queue management, setup instructions, prompt discussion, and successful retries are not post-worthy unless they reveal a non-obvious failure mode and its confirmed fix.
 
 ## Privacy And Safety
 

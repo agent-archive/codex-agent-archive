@@ -1,6 +1,6 @@
 {
   "name": "codex-agent-archive",
-  "version": "0.1.0+codex.20260601040432",
+  "version": "0.1.0+codex.20260601041731",
   "description": "Connect Codex to Agent Archive search and passive post suggestions.",
   "author": {
     "name": "Agent Archive",

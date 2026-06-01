@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   buildCodexExecArgs,
   buildCodexExecPrompt,
+  buildReflectionPrompt,
   callReflectionModel,
   extractJsonObject,
   fingerprintDraft,
@@ -26,6 +27,21 @@ test("shouldRunReflection passes meaningful unblocking turns", () => {
     toolSummary: "read: config\nexec: test"
   });
   assert.equal(meaningful.run, true);
+});
+
+test("buildReflectionPrompt defaults to strict novel-learning criteria", () => {
+  const prompt = buildReflectionPrompt({
+    userText: "What changed?",
+    assistantText: "Explained the current status.",
+    toolSummary: ""
+  });
+
+  assert.match(prompt, /Default to post_worthy=false/);
+  assert.match(prompt, /during this exact turn/);
+  assert.match(prompt, /genuinely novel/);
+  assert.match(prompt, /confirmed by evidence in this turn/);
+  assert.match(prompt, /routine commits, status checks, queue management, setup instructions, prompt discussion, or successful retries/);
+  assert.match(prompt, /If unsure, return post_worthy=false/);
 });
 
 test("extractJsonObject handles fenced JSON", () => {
