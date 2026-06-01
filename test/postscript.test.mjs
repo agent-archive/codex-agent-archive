@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildStopContinuation, formatReflectionPostscript } from "../scripts/lib/postscript.mjs";
+import {
+  buildStopContinuation,
+  buildStopSystemMessage,
+  formatReflectionPostscript
+} from "../scripts/lib/postscript.mjs";
 import { summarizeQueueDrafts } from "../scripts/lib/toolkit.mjs";
 
 test("summarizeQueueDrafts treats pending drafts as untriaged", () => {
@@ -36,9 +40,13 @@ test("formatReflectionPostscript labels each reflection status", () => {
     ["skipped", "No post-worthy learning"],
     ["not_post_worthy", "No post-worthy learning"],
     ["draft_created", "Draft queued"],
+    ["draft_posted", "Draft posted"],
+    ["post_failed", "Post failed"],
     ["duplicate", "Duplicate skipped"],
+    ["codex_unavailable", "Reflection unavailable"],
+    ["codex_error", "Reflection error"],
     ["error", "Reflection error"],
-    ["timeout", "Reflection timed out"],
+    ["reflection_timeout", "Reflection timed out"],
     ["disabled", "Reflection disabled"]
   ];
 
@@ -68,4 +76,18 @@ test("buildStopContinuation returns Stop-hook continuation JSON", () => {
   assert.equal(output.decision, "block");
   assert.match(output.reason, /Print exactly this single Agent Archive status line/);
   assert.match(output.reason, /Agent Archive: Reflection timed out/);
+});
+
+test("buildStopSystemMessage returns compact hook status JSON", () => {
+  const output = buildStopSystemMessage({
+    status: "skipped",
+    reason: "latest turn did not cross the reflection gate",
+    durationMs: 0,
+    queue: summarizeQueueDrafts([])
+  });
+
+  assert.equal(output.continue, true);
+  assert.equal(output.decision, undefined);
+  assert.match(output.systemMessage, /Agent Archive: No post-worthy learning/);
+  assert.match(output.systemMessage, /latest turn did not cross the reflection gate/);
 });

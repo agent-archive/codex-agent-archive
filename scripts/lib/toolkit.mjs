@@ -3,14 +3,44 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-function executableOnPath(name) {
-  const result = spawnSync("which", [name], { encoding: "utf8" });
+function executableOnPath(name, env = process.env) {
+  const result = spawnSync("/usr/bin/env", ["which", name], { encoding: "utf8", env });
   if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
   return null;
 }
 
-function nodeScriptCommand(scriptPath) {
-  return { cmd: process.execPath, argsPrefix: [scriptPath], source: scriptPath };
+function resolveNodeBin(env = process.env) {
+  if (env.AGENT_ARCHIVE_NODE_BIN) {
+    if (path.isAbsolute(env.AGENT_ARCHIVE_NODE_BIN) && existsSync(env.AGENT_ARCHIVE_NODE_BIN)) return env.AGENT_ARCHIVE_NODE_BIN;
+    const configuredBinary = executableOnPath(env.AGENT_ARCHIVE_NODE_BIN, env);
+    if (configuredBinary) return configuredBinary;
+  }
+  if (process.execPath && existsSync(process.execPath)) return process.execPath;
+  const appNode = "/Applications/Codex.app/Contents/Resources/node";
+  if (process.platform === "darwin" && existsSync(appNode)) return appNode;
+  return executableOnPath("node", env) || "node";
+}
+
+function nodeScriptCommand(scriptPath, env = process.env) {
+  return { cmd: resolveNodeBin(env), argsPrefix: [scriptPath], source: scriptPath };
+}
+
+function toolkitScriptFromPath(toolkitPath) {
+  if (!toolkitPath) return null;
+  const packageBin = path.join(toolkitPath, "bin", "agent-archive.js");
+  if (existsSync(packageBin)) return packageBin;
+  if (existsSync(toolkitPath)) return toolkitPath;
+  return null;
+}
+
+function candidateToolkitRoots(pluginRoot, env) {
+  const home = env.HOME || process.env.HOME || "";
+  return [
+    path.join(pluginRoot, "node_modules", "@agent-archive", "toolkit"),
+    path.join(pluginRoot, "..", "agent-archive-toolkit"),
+    home ? path.join(home, "Projects", "agent-archive-toolkit") : "",
+    home ? path.join(home, "projects", "agent-archive-toolkit") : ""
+  ].filter(Boolean);
 }
 
 export function findToolkitCommand(pluginRoot = process.cwd(), env = process.env) {
@@ -19,18 +49,16 @@ export function findToolkitCommand(pluginRoot = process.cwd(), env = process.env
   }
 
   if (env.AGENT_ARCHIVE_TOOLKIT_PATH) {
-    const candidate = path.join(env.AGENT_ARCHIVE_TOOLKIT_PATH, "bin", "agent-archive.js");
-    if (existsSync(candidate)) return nodeScriptCommand(candidate);
-    if (existsSync(env.AGENT_ARCHIVE_TOOLKIT_PATH)) return nodeScriptCommand(env.AGENT_ARCHIVE_TOOLKIT_PATH);
+    const candidate = toolkitScriptFromPath(env.AGENT_ARCHIVE_TOOLKIT_PATH);
+    if (candidate) return nodeScriptCommand(candidate, env);
   }
 
-  const localPackage = path.join(pluginRoot, "node_modules", "@agent-archive", "toolkit", "bin", "agent-archive.js");
-  if (existsSync(localPackage)) return nodeScriptCommand(localPackage);
+  for (const root of candidateToolkitRoots(pluginRoot, env)) {
+    const candidate = toolkitScriptFromPath(root);
+    if (candidate) return nodeScriptCommand(candidate, env);
+  }
 
-  const sibling = path.join(pluginRoot, "..", "agent-archive-toolkit", "bin", "agent-archive.js");
-  if (existsSync(sibling)) return nodeScriptCommand(sibling);
-
-  const pathBinary = executableOnPath("agent-archive");
+  const pathBinary = executableOnPath("agent-archive", env);
   if (pathBinary) return { cmd: pathBinary, argsPrefix: [], source: pathBinary };
 
   return null;
@@ -124,5 +152,10 @@ export function createQueueDraft(pluginRoot, draft, options = {}) {
   if (draft.sourceSession) args.splice(args.indexOf("--body-file"), 0, "--source-session", draft.sourceSession);
 
   const raw = runToolkit(pluginRoot, args, options);
+  return JSON.parse(raw);
+}
+
+export function postQueueDraft(pluginRoot, id, options = {}) {
+  const raw = runToolkit(pluginRoot, ["queue", "post", id, "--yes", "--json"], options);
   return JSON.parse(raw);
 }

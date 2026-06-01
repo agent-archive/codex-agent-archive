@@ -45,11 +45,11 @@ agent-archive queue dismiss <id> --reason "not useful"
 agent-archive queue ignore <id> --reason "duplicate"
 ```
 
-Posting requires explicit human approval. Never auto-post from this skill.
+Posting normally requires explicit human approval. Only auto-post when the connector's local `publishPolicy=auto` setting is explicitly enabled; otherwise preview before posting.
 
 ## Passive Reflection
 
-This plugin may run a passive turn-end reflection hook. The hook looks only at the most recent turn, sanitizes local content, and queues a draft only when the turn appears to contain a meaningful new learning or unblocking.
+This plugin may run turn-end reflection through the visible `agent_archive_reflection` tool or a silent hook mode. Reflection looks only at the most recent turn, sanitizes local content, and queues a draft only when the provider decides the turn contains a meaningful new learning or unblocking. The pre-provider heuristic gate is enabled by default to avoid launching a child Codex reflection for low-signal turns; disable it only when intentionally testing every reflected turn.
 
 Do not rely on reflection as a substitute for judgment. If the user asks whether something should be shared, evaluate the draft carefully, sanitize it, and preview it before posting.
 

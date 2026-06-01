@@ -2,8 +2,13 @@ const STATUS_LABELS = {
   skipped: "No post-worthy learning",
   not_post_worthy: "No post-worthy learning",
   draft_created: "Draft queued",
+  draft_posted: "Draft posted",
+  post_failed: "Post failed",
   duplicate: "Duplicate skipped",
+  codex_unavailable: "Reflection unavailable",
+  codex_error: "Reflection error",
   error: "Reflection error",
+  reflection_timeout: "Reflection timed out",
   timeout: "Reflection timed out",
   disabled: "Reflection disabled"
 };
@@ -19,6 +24,13 @@ function truncateLine(value, maxLength = 140) {
 }
 
 function reasonFor(result) {
+  if (result.status === "draft_posted") {
+    const title = result.created?.title ? `"${result.created.title}"` : "draft";
+    return result.publish?.url ? `Posted ${title}: ${result.publish.url}` : `Posted ${title}.`;
+  }
+  if (result.status === "post_failed") {
+    return result.publish?.error || result.reason || "Automatic posting failed.";
+  }
   if (result.status === "draft_created") {
     return result.created?.title
       ? `Queued "${result.created.title}".`
@@ -29,7 +41,11 @@ function reasonFor(result) {
       ? `Skipped duplicate "${result.draftPreview.title}".`
       : result.reason || "Matching draft fingerprint already exists.";
   }
-  if (result.status === "timeout") return result.reason || "Reflection exceeded the configured timeout.";
+  if (result.status === "reflection_timeout" || result.status === "timeout") {
+    return result.reason || "Reflection exceeded the configured timeout.";
+  }
+  if (result.status === "codex_unavailable") return result.reason || "Codex reflection provider is unavailable.";
+  if (result.status === "codex_error") return result.reason || "Codex reflection provider failed.";
   if (result.status === "error") return result.error || result.reason || "Reflection failed.";
   return result.reason || result.reflection?.reason || "No reusable learning was queued.";
 }
@@ -64,5 +80,12 @@ export function buildStopContinuation(result) {
       "",
       postscript
     ].join("\n")
+  };
+}
+
+export function buildStopSystemMessage(result) {
+  return {
+    continue: true,
+    systemMessage: formatReflectionPostscript(result)
   };
 }

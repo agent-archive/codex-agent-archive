@@ -4,8 +4,11 @@ import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  resolveReflectionMode,
-  setReflectionMode
+  resolveReflectionSettings,
+  setReflectionGateEnabled,
+  setPublishPolicy,
+  setReflectionProvider,
+  setReflectionVisibility
 } from "../scripts/lib/reflection-mode.mjs";
 
 function envForTempData() {
@@ -14,36 +17,67 @@ function envForTempData() {
   };
 }
 
-test("resolveReflectionMode defaults to visible", () => {
-  const resolved = resolveReflectionMode(envForTempData());
-  assert.equal(resolved.mode, "visible");
+test("resolveReflectionSettings defaults to tool visibility with the reflection gate on", () => {
+  const resolved = resolveReflectionSettings(envForTempData());
+  assert.equal(resolved.visibility, "tool");
+  assert.equal(resolved.reflectionGateEnabled, true);
+  assert.equal(resolved.publishPolicy, "queue");
+  assert.equal(resolved.reflectionProvider, "codex");
   assert.equal(resolved.source, "default");
 });
 
-test("resolveReflectionMode prefers disabled env over mode env", () => {
-  const resolved = resolveReflectionMode({
+test("AGENT_ARCHIVE_REFLECTION_GATE_ENABLED controls heuristic gating", () => {
+  const resolved = resolveReflectionSettings({
     ...envForTempData(),
-    AGENT_ARCHIVE_REFLECTION_DISABLED: "true",
-    AGENT_ARCHIVE_REFLECTION_MODE: "visible"
+    AGENT_ARCHIVE_REFLECTION_GATE_ENABLED: "true"
   });
-  assert.equal(resolved.mode, "off");
-  assert.equal(resolved.source, "AGENT_ARCHIVE_REFLECTION_DISABLED");
+  assert.equal(resolved.visibility, "tool");
+  assert.equal(resolved.reflectionGateEnabled, true);
+  assert.equal(resolved.reflectionGateSource, "AGENT_ARCHIVE_REFLECTION_GATE_ENABLED");
 });
 
-test("resolveReflectionMode prefers env mode over settings", () => {
+test("AGENT_ARCHIVE_REFLECTION_VISIBILITY controls disabling", () => {
+  const resolved = resolveReflectionSettings({
+    ...envForTempData(),
+    AGENT_ARCHIVE_REFLECTION_VISIBILITY: "off"
+  });
+  assert.equal(resolved.visibility, "off");
+  assert.equal(resolved.source, "AGENT_ARCHIVE_REFLECTION_VISIBILITY");
+});
+
+test("setters persist visibility, publish policy, and provider", () => {
   const env = envForTempData();
-  setReflectionMode("off", env);
-  const resolved = resolveReflectionMode({
+  setReflectionGateEnabled(true, env);
+  assert.equal(resolveReflectionSettings(env).reflectionGateEnabled, true);
+  setReflectionVisibility("verbose", env);
+  assert.equal(resolveReflectionSettings(env).visibility, "verbose");
+  setPublishPolicy("auto", env);
+  assert.equal(resolveReflectionSettings(env).publishPolicy, "auto");
+  setReflectionProvider("codex", env);
+  assert.equal(resolveReflectionSettings(env).reflectionProvider, "codex");
+  assert.throws(() => setReflectionGateEnabled("maybe", env), /Invalid reflection gate value/);
+  assert.throws(() => setReflectionVisibility("chatty", env), /Invalid reflection visibility/);
+  assert.throws(() => setReflectionVisibility("record", env), /Invalid reflection visibility/);
+  assert.throws(() => setPublishPolicy("reckless", env), /Invalid publish policy/);
+  assert.throws(() => setReflectionProvider("mock", env), /Invalid reflection provider/);
+  assert.throws(() => setReflectionProvider("local-magic", env), /Invalid reflection provider/);
+});
+
+test("new env vars override settings", () => {
+  const env = envForTempData();
+  setReflectionGateEnabled(true, env);
+  setReflectionVisibility("silent", env);
+  setPublishPolicy("queue", env);
+  setReflectionProvider("api", env);
+  const resolved = resolveReflectionSettings({
     ...env,
-    AGENT_ARCHIVE_REFLECTION_MODE: "record"
+    AGENT_ARCHIVE_REFLECTION_GATE_ENABLED: "false",
+    AGENT_ARCHIVE_REFLECTION_VISIBILITY: "verbose",
+    AGENT_ARCHIVE_PUBLISH_POLICY: "auto",
+    AGENT_ARCHIVE_REFLECTION_PROVIDER: "codex"
   });
-  assert.equal(resolved.mode, "record");
-  assert.equal(resolved.source, "AGENT_ARCHIVE_REFLECTION_MODE");
-});
-
-test("setReflectionMode persists valid modes and rejects invalid modes", () => {
-  const env = envForTempData();
-  setReflectionMode("record", env);
-  assert.equal(resolveReflectionMode(env).mode, "record");
-  assert.throws(() => setReflectionMode("loud", env), /Invalid reflection mode/);
+  assert.equal(resolved.reflectionGateEnabled, false);
+  assert.equal(resolved.visibility, "verbose");
+  assert.equal(resolved.publishPolicy, "auto");
+  assert.equal(resolved.reflectionProvider, "codex");
 });

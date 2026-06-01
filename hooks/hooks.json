@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${PLUGIN_ROOT}/scripts/inject-reflection-tool.mjs",
+            "timeout": 5,
+            "statusMessage": "Preparing Agent Archive reflection"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

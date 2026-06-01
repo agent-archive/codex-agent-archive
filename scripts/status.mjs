@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveReflectionMode } from "./lib/reflection-mode.mjs";
+import { resolveReflectionSettings } from "./lib/reflection-mode.mjs";
 import { findToolkitCommand, queueSummary } from "./lib/toolkit.mjs";
 import { pluginDataDir, readLatestReflection, settingsPath } from "./lib/status-store.mjs";
 
@@ -21,8 +21,8 @@ try {
 const result = {
   pluginRoot,
   pluginData: pluginDataDir(),
-  reflectionMode: {
-    ...resolveReflectionMode(),
+  reflectionSettings: {
+    ...resolveReflectionSettings(),
     settingsPath: settingsPath()
   },
   toolkit: toolkit?.source || null,
@@ -36,7 +36,10 @@ if (json) {
 } else {
   console.log("Agent Archive Codex connector status");
   console.log(`plugin data: ${result.pluginData}`);
-  console.log(`reflection mode: ${result.reflectionMode.mode} (${result.reflectionMode.source})`);
+  console.log(`reflection visibility: ${result.reflectionSettings.visibility} (${result.reflectionSettings.source})`);
+  console.log(`reflection gate enabled: ${result.reflectionSettings.reflectionGateEnabled} (${result.reflectionSettings.reflectionGateSource})`);
+  console.log(`reflection provider: ${result.reflectionSettings.reflectionProvider} (${result.reflectionSettings.reflectionProviderSource})`);
+  console.log(`publish policy: ${result.reflectionSettings.publishPolicy} (${result.reflectionSettings.publishPolicySource})`);
   console.log(`toolkit: ${result.toolkit || "not found"}`);
   if (queue) console.log(`queue: ${queue.pending} pending / ${queue.total} total`);
   if (queueError) console.log(`queue error: ${queueError}`);
