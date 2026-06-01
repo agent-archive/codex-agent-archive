@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 
 export const AGENT_ARCHIVE_KEY_ENV = "AGENT_ARCHIVE_API_KEY";
 export const AGENT_ARCHIVE_KEYCHAIN_SERVICE = "agent-archive-api-key";
+const AGENT_ARCHIVE_KEY_PATTERN = /^agentarchive_[a-zA-Z0-9_-]{20,}$/;
 
 function runCommand(command, args, options = {}) {
   return spawnSync(command, args, {
@@ -20,10 +21,22 @@ export function keychainAccount(env = process.env) {
   return env.USER || os.userInfo().username;
 }
 
-export function launchctlKeyConfigured() {
+function normalizeApiKey(apiKey) {
+  return String(apiKey || "").trim();
+}
+
+export function isSupportedAgentArchiveApiKey(apiKey) {
+  return AGENT_ARCHIVE_KEY_PATTERN.test(normalizeApiKey(apiKey));
+}
+
+export function readLaunchctlAgentArchiveKey() {
   if (!isMac()) return false;
   const result = runCommand("launchctl", ["getenv", AGENT_ARCHIVE_KEY_ENV]);
-  return result.status === 0 && Boolean(result.stdout.trim());
+  return result.status === 0 ? result.stdout.trim() : "";
+}
+
+export function launchctlKeyConfigured() {
+  return Boolean(readLaunchctlAgentArchiveKey());
 }
 
 export function keychainHasAgentArchiveKey(env = process.env) {
@@ -58,13 +71,20 @@ export function readAgentArchiveKeyFromKeychain(env = process.env) {
 }
 
 export function storeAgentArchiveKeyInKeychain(apiKey, env = process.env) {
+  const normalizedApiKey = normalizeApiKey(apiKey);
+  if (!normalizedApiKey) {
+    throw new Error("Agent Archive API key cannot be empty.");
+  }
+  if (!isSupportedAgentArchiveApiKey(normalizedApiKey)) {
+    throw new Error('Agent Archive API key must start with "agentarchive_" and contain the full key. The value was not stored.');
+  }
   if (!isMac()) {
     throw new Error("macOS Keychain is only available on darwin.");
   }
-  if (!String(apiKey || "").trim()) {
-    throw new Error("Agent Archive API key cannot be empty.");
-  }
 
+  // Passing the validated value as an argv avoids macOS security's confusing
+  // second "password data" prompt. spawnSync is not a shell, so this does not
+  // put the key in shell history.
   const result = runCommand("security", [
     "add-generic-password",
     "-a",
@@ -72,8 +92,9 @@ export function storeAgentArchiveKeyInKeychain(apiKey, env = process.env) {
     "-s",
     AGENT_ARCHIVE_KEYCHAIN_SERVICE,
     "-U",
-    "-w"
-  ], { input: `${String(apiKey).trim()}\n${String(apiKey).trim()}\n` });
+    "-w",
+    normalizedApiKey
+  ]);
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || "security add-generic-password failed.").trim());
   }
@@ -82,6 +103,9 @@ export function storeAgentArchiveKeyInKeychain(apiKey, env = process.env) {
 
 export function hydrateLaunchctlFromKeychain(env = process.env) {
   const apiKey = readAgentArchiveKeyFromKeychain(env);
+  if (!isSupportedAgentArchiveApiKey(apiKey)) {
+    throw new Error(`Stored ${AGENT_ARCHIVE_KEY_ENV} does not look like an Agent Archive API key. Run store again with the full key.`);
+  }
   const result = runCommand("launchctl", ["setenv", AGENT_ARCHIVE_KEY_ENV, apiKey]);
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || "launchctl setenv failed.").trim());
@@ -90,17 +114,32 @@ export function hydrateLaunchctlFromKeychain(env = process.env) {
 }
 
 export function agentArchiveKeyStatus(env = process.env) {
-  const processEnvConfigured = Boolean(env[AGENT_ARCHIVE_KEY_ENV]);
-  const launchctlConfigured = launchctlKeyConfigured();
+  const processEnvValue = normalizeApiKey(env[AGENT_ARCHIVE_KEY_ENV]);
+  const launchctlValue = readLaunchctlAgentArchiveKey();
   const keychainConfigured = keychainHasAgentArchiveKey(env);
+  let keychainValueLooksValid = false;
+  if (keychainConfigured) {
+    try {
+      keychainValueLooksValid = isSupportedAgentArchiveApiKey(readAgentArchiveKeyFromKeychain(env));
+    } catch {
+      keychainValueLooksValid = false;
+    }
+  }
+  const processEnvConfigured = Boolean(processEnvValue);
+  const processEnvLooksValid = isSupportedAgentArchiveApiKey(processEnvValue);
+  const launchctlConfigured = Boolean(launchctlValue);
+  const launchctlValueLooksValid = isSupportedAgentArchiveApiKey(launchctlValue);
   return {
     envVar: AGENT_ARCHIVE_KEY_ENV,
     processEnvConfigured,
+    processEnvLooksValid,
     launchctlConfigured,
+    launchctlValueLooksValid,
     keychainConfigured,
-    availableToCurrentProcess: processEnvConfigured,
-    readyForRestartedCodex: launchctlConfigured,
-    currentProcessNeedsExport: !processEnvConfigured && (launchctlConfigured || keychainConfigured),
+    keychainValueLooksValid,
+    availableToCurrentProcess: processEnvLooksValid,
+    readyForRestartedCodex: launchctlValueLooksValid,
+    currentProcessNeedsExport: !processEnvLooksValid && (launchctlValueLooksValid || keychainValueLooksValid),
     keychainService: AGENT_ARCHIVE_KEYCHAIN_SERVICE,
     keychainAccount: keychainAccount(env)
   };

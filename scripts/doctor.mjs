@@ -30,6 +30,29 @@ const hooks = readJson(path.join(pluginRoot, "hooks", "hooks.json"));
 const toolkit = findToolkitCommand(pluginRoot);
 const keyStatus = agentArchiveKeyStatus();
 
+function keyLocationLabel(configured, looksValid) {
+  if (!configured) return "missing";
+  return looksValid ? "set, valid format" : "set, invalid format";
+}
+
+function keyStatusDetail(status) {
+  if (status.availableToCurrentProcess) {
+    return "available in current process";
+  }
+  return [
+    `missing or invalid in current process`,
+    `launchctl ${keyLocationLabel(status.launchctlConfigured, status.launchctlValueLooksValid)}`,
+    `Keychain ${keyLocationLabel(status.keychainConfigured, status.keychainValueLooksValid)}`,
+    status.readyForRestartedCodex ? "ready after Codex restart" : ""
+  ].filter(Boolean).join("; ");
+}
+
+function agentArchiveKeyCanBeWarning(status) {
+  const anyConfigured = status.processEnvConfigured || status.launchctlConfigured || status.keychainConfigured;
+  const anyLooksValid = status.processEnvLooksValid || status.launchctlValueLooksValid || status.keychainValueLooksValid;
+  return !anyConfigured || anyLooksValid;
+}
+
 let toolkitDoctor = null;
 let queue = null;
 try {
@@ -49,15 +72,13 @@ const checks = [
   check("reflection provider", Boolean(resolveReflectionSettings().reflectionProvider), "codex is default; OpenAI key is only needed for provider=api"),
   check(
     "Agent Archive key",
-    keyStatus.processEnvConfigured,
-    keyStatus.processEnvConfigured
-      ? "available in current process"
-      : `missing in current process; launchctl ${keyStatus.launchctlConfigured ? "set" : "missing"}, Keychain ${keyStatus.keychainConfigured ? "found" : "missing"}${keyStatus.readyForRestartedCodex ? ", ready after Codex restart" : ""}`
+    keyStatus.availableToCurrentProcess,
+    keyStatusDetail(keyStatus)
   )
 ];
 
 const result = {
-  ok: checks.every((item) => item.ok || item.name === "Agent Archive key"),
+  ok: checks.every((item) => item.ok || (item.name === "Agent Archive key" && agentArchiveKeyCanBeWarning(keyStatus))),
   pluginRoot,
   pluginData: pluginDataDir(),
   reflectionSettings: resolveReflectionSettings(),
@@ -82,8 +103,8 @@ if (json) {
   console.log(`reflection gate enabled: ${result.reflectionSettings.reflectionGateEnabled} (${result.reflectionSettings.reflectionGateSource})`);
   console.log(`reflection provider: ${result.reflectionSettings.reflectionProvider} (${result.reflectionSettings.reflectionProviderSource})`);
   console.log(`publish policy: ${result.reflectionSettings.publishPolicy} (${result.reflectionSettings.publishPolicySource})`);
-  console.log(`Agent Archive key: process ${result.agentArchiveKey.processEnvConfigured ? "set" : "missing"}, launchctl ${result.agentArchiveKey.launchctlConfigured ? "set" : "missing"}, Keychain ${result.agentArchiveKey.keychainConfigured ? "found" : "missing"}`);
-  if (result.agentArchiveKey.readyForRestartedCodex && !result.agentArchiveKey.processEnvConfigured) {
+  console.log(`Agent Archive key: process ${keyLocationLabel(result.agentArchiveKey.processEnvConfigured, result.agentArchiveKey.processEnvLooksValid)}, launchctl ${keyLocationLabel(result.agentArchiveKey.launchctlConfigured, result.agentArchiveKey.launchctlValueLooksValid)}, Keychain ${keyLocationLabel(result.agentArchiveKey.keychainConfigured, result.agentArchiveKey.keychainValueLooksValid)}`);
+  if (result.agentArchiveKey.readyForRestartedCodex && !result.agentArchiveKey.availableToCurrentProcess) {
     console.log("Agent Archive key: ready for restarted Codex, but not this already-running process");
   }
 }

@@ -60,11 +60,19 @@ function print(value) {
     return;
   }
 
-  console.log(`process env ${AGENT_ARCHIVE_KEY_ENV}: ${value.processEnvConfigured ? "set" : "missing"}`);
-  console.log(`launchctl ${AGENT_ARCHIVE_KEY_ENV}: ${value.launchctlConfigured ? "set" : "missing"}`);
-  console.log(`Keychain ${AGENT_ARCHIVE_KEYCHAIN_SERVICE}: ${value.keychainConfigured ? "found" : "missing"}`);
+  const state = (configured, looksValid) => {
+    if (!configured) return "missing";
+    return looksValid ? "set, valid format" : "set, invalid format";
+  };
+
+  console.log(`process env ${AGENT_ARCHIVE_KEY_ENV}: ${state(value.processEnvConfigured, value.processEnvLooksValid)}`);
+  console.log(`launchctl ${AGENT_ARCHIVE_KEY_ENV}: ${state(value.launchctlConfigured, value.launchctlValueLooksValid)}`);
+  console.log(`Keychain ${AGENT_ARCHIVE_KEYCHAIN_SERVICE}: ${state(value.keychainConfigured, value.keychainValueLooksValid)}`);
   if (value.currentProcessNeedsExport) {
     console.log("current shell/Codex process has not inherited the key yet.");
+  }
+  if (value.processEnvConfigured && !value.processEnvLooksValid) {
+    console.log(`current shell/Codex process has ${AGENT_ARCHIVE_KEY_ENV}, but it does not look like an Agent Archive API key.`);
   }
   if (value.readyForRestartedCodex && !value.processEnvConfigured) {
     console.log("ready for restarted Codex: yes");

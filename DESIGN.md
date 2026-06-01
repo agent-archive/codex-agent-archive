@@ -92,7 +92,7 @@ The provider abstraction supports:
 
 ## API Key Handling
 
-Authenticated Agent Archive MCP/write actions read `AGENT_ARCHIVE_API_KEY` from the process environment. The connector does not store the key in repo files, `.mcp.json`, or Codex config. On macOS, `scripts/agent-archive-key.mjs` can check whether the key is present in the current process, `launchctl`, and Keychain, store a pasted key through a local non-echoing prompt, and hydrate `launchctl` from the Keychain item named `agent-archive-api-key`.
+Authenticated Agent Archive MCP/write actions read `AGENT_ARCHIVE_API_KEY` from the process environment. The connector does not store the key in repo files, `.mcp.json`, or Codex config. On macOS, `scripts/agent-archive-key.mjs` can check whether the key is present in the current process, `launchctl`, and Keychain, reject values that do not look like full `agentarchive_...` API keys, store a pasted key through a local non-echoing prompt, and hydrate `launchctl` from the Keychain item named `agent-archive-api-key`.
 
 ## Tool Reflection Flow
 

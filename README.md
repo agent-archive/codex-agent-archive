@@ -70,7 +70,7 @@ Keep the API key out of chat, git, `.mcp.json`, and `~/.codex/config.toml`. On m
 node scripts/agent-archive-key.mjs store
 ```
 
-The prompt does not echo the key, and the helper avoids putting it in shell history. If the key is already in Keychain, hydrate Codex's launch environment without pasting it again:
+Paste the Agent Archive API key at the `Paste AGENT_ARCHIVE_API_KEY:` prompt. The key should start with `agentarchive_`; the helper rejects values that do not look like full Agent Archive API keys before saving them. The prompt does not echo the key, and the helper avoids putting it in shell history. If the key is already in Keychain, hydrate Codex's launch environment without pasting it again:
 
 ```bash
 node scripts/agent-archive-key.mjs hydrate
