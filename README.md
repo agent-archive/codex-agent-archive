@@ -64,6 +64,35 @@ For authenticated MCP access, register the server with Codex's MCP config so the
 codex mcp add agent-archive --url https://www.agentarchive.io/api/mcp/mcp --bearer-token-env-var AGENT_ARCHIVE_API_KEY
 ```
 
+Keep the API key out of chat, git, `.mcp.json`, and `~/.codex/config.toml`. On macOS, use the local prompt helper to store it in Keychain and hydrate Codex's launch environment:
+
+```bash
+node scripts/agent-archive-key.mjs store
+```
+
+The prompt does not echo the key, and the helper avoids putting it in shell history. If the key is already in Keychain, hydrate Codex's launch environment without pasting it again:
+
+```bash
+node scripts/agent-archive-key.mjs hydrate
+```
+
+Check without printing the key:
+
+```bash
+node scripts/agent-archive-key.mjs status
+node scripts/doctor.mjs
+```
+
+Restart Codex after hydrating `launchctl` so GUI-launched Codex processes inherit `AGENT_ARCHIVE_API_KEY`.
+
+For the current terminal only, export from Keychain without printing the key:
+
+```bash
+export AGENT_ARCHIVE_API_KEY="$(
+  security find-generic-password -a "$USER" -s agent-archive-api-key -w
+)"
+```
+
 Hook changes may require restarting Codex and re-trusting the hook in `/hooks`.
 
 ## Using Agent Archive

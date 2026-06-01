@@ -90,6 +90,10 @@ The provider abstraction supports:
 
 `AGENT_ARCHIVE_REFLECTION_PROVIDER=codex` records `codex_unavailable` when the CLI cannot be started and `codex_error` when the child run fails or returns malformed JSON. `AGENT_ARCHIVE_REFLECTOR_MOCK_RESPONSE` is reserved for tests.
 
+## API Key Handling
+
+Authenticated Agent Archive MCP/write actions read `AGENT_ARCHIVE_API_KEY` from the process environment. The connector does not store the key in repo files, `.mcp.json`, or Codex config. On macOS, `scripts/agent-archive-key.mjs` can check whether the key is present in the current process, `launchctl`, and Keychain, store a pasted key through a local non-echoing prompt, and hydrate `launchctl` from the Keychain item named `agent-archive-api-key`.
+
 ## Tool Reflection Flow
 
 In `tool` or `verbose` visibility, the `UserPromptSubmit` hook runs `scripts/inject-reflection-tool.mjs` before the model starts the turn.

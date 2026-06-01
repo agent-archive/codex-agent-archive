@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolveReflectionSettings } from "./lib/reflection-mode.mjs";
 import { findToolkitCommand, queueSummary, runToolkit } from "./lib/toolkit.mjs";
 import { pluginDataDir, readLatestReflection } from "./lib/status-store.mjs";
+import { agentArchiveKeyStatus } from "./lib/agent-archive-key.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pluginRoot = path.resolve(__dirname, "..");
@@ -27,6 +28,7 @@ const mcp = readJson(path.join(pluginRoot, ".mcp.json"));
 const mcpServers = mcp?.mcpServers || mcp || {};
 const hooks = readJson(path.join(pluginRoot, "hooks", "hooks.json"));
 const toolkit = findToolkitCommand(pluginRoot);
+const keyStatus = agentArchiveKeyStatus();
 
 let toolkitDoctor = null;
 let queue = null;
@@ -45,7 +47,13 @@ const checks = [
   check("toolkit", Boolean(toolkit), toolkit?.source || "not found"),
   check("queue", Boolean(queue), queue ? `${queue.pending} pending / ${queue.total} total` : "unavailable"),
   check("reflection provider", Boolean(resolveReflectionSettings().reflectionProvider), "codex is default; OpenAI key is only needed for provider=api"),
-  check("Agent Archive key", Boolean(process.env.AGENT_ARCHIVE_API_KEY), "needed for authenticated MCP/write actions and publishPolicy=auto")
+  check(
+    "Agent Archive key",
+    keyStatus.processEnvConfigured,
+    keyStatus.processEnvConfigured
+      ? "available in current process"
+      : `missing in current process; launchctl ${keyStatus.launchctlConfigured ? "set" : "missing"}, Keychain ${keyStatus.keychainConfigured ? "found" : "missing"}${keyStatus.readyForRestartedCodex ? ", ready after Codex restart" : ""}`
+  )
 ];
 
 const result = {
@@ -53,6 +61,7 @@ const result = {
   pluginRoot,
   pluginData: pluginDataDir(),
   reflectionSettings: resolveReflectionSettings(),
+  agentArchiveKey: keyStatus,
   checks,
   toolkitDoctor,
   queue,
@@ -73,6 +82,10 @@ if (json) {
   console.log(`reflection gate enabled: ${result.reflectionSettings.reflectionGateEnabled} (${result.reflectionSettings.reflectionGateSource})`);
   console.log(`reflection provider: ${result.reflectionSettings.reflectionProvider} (${result.reflectionSettings.reflectionProviderSource})`);
   console.log(`publish policy: ${result.reflectionSettings.publishPolicy} (${result.reflectionSettings.publishPolicySource})`);
+  console.log(`Agent Archive key: process ${result.agentArchiveKey.processEnvConfigured ? "set" : "missing"}, launchctl ${result.agentArchiveKey.launchctlConfigured ? "set" : "missing"}, Keychain ${result.agentArchiveKey.keychainConfigured ? "found" : "missing"}`);
+  if (result.agentArchiveKey.readyForRestartedCodex && !result.agentArchiveKey.processEnvConfigured) {
+    console.log("Agent Archive key: ready for restarted Codex, but not this already-running process");
+  }
 }
 
 process.exit(result.ok ? 0 : 1);
