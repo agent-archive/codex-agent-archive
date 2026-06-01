@@ -29,6 +29,61 @@ test("shouldRunReflection passes meaningful unblocking turns", () => {
   assert.equal(meaningful.run, true);
 });
 
+test("shouldRunReflection ignores removed and generic one-word signals", () => {
+  for (const text of [
+    "We kept going until the task was complete.",
+    "Turns out the task was already done.",
+    "The command failed with an error, then I fixed it and learned the flow was resolved."
+  ]) {
+    const result = shouldRunReflection({ userText: text, assistantText: "", toolSummary: "" });
+    assert.equal(result.run, false, text);
+    assert.equal(result.signals.length, 0, text);
+  }
+});
+
+test("shouldRunReflection passes on any refined signal", () => {
+  for (const text of [
+    "The root cause was a missing bearer token.",
+    "This was a non-obvious MCP behavior.",
+    "The API had an undocumented requirement.",
+    "The workaround was to call the toolkit through node.",
+    "The gotcha is that source is not runtime truth.",
+    "The 401 pointed at an auth issue.",
+    "The failure was caused by a stale plugin cache.",
+    "The issue was fixed by updating the launcher.",
+    "The issue was resolved by restarting Codex.",
+    "The task was unblocked by exporting the key.",
+    "This confirmed fix should be reusable.",
+    "We learned that visible reflection only sees serialized fields."
+  ]) {
+    assert.equal(shouldRunReflection({ userText: text, assistantText: "", toolSummary: "" }).run, true, text);
+  }
+});
+
+test("shouldRunReflection passes on time or tool count triggers", () => {
+  assert.equal(shouldRunReflection({
+    userText: "routine implementation turn",
+    assistantText: "completed without special wording",
+    toolSummary: "",
+    elapsedTurnMs: 90001
+  }).run, true);
+
+  assert.equal(shouldRunReflection({
+    userText: "routine implementation turn",
+    assistantText: "completed without special wording",
+    toolSummary: "",
+    elapsedTurnMs: 90000
+  }).run, false);
+
+  const toolCount = shouldRunReflection({
+    userText: "routine implementation turn",
+    assistantText: "completed without special wording",
+    toolSummary: "read files\nran tests\nchecked status"
+  });
+  assert.equal(toolCount.run, true);
+  assert.equal(toolCount.toolCallCount, 3);
+});
+
 test("buildReflectionPrompt defaults to strict novel-learning criteria", () => {
   const prompt = buildReflectionPrompt({
     userText: "What changed?",

@@ -29,5 +29,6 @@ test("latestTurnFromEvents returns only the latest user turn", () => {
   assert.equal(turn.userText, "new blocker");
   assert.equal(turn.assistantText, "new fix");
   assert.match(turn.toolSummary, /rg/);
+  assert.equal(turn.toolCallCount, 1);
   assert.equal(turn.sessionId, "s1");
 });

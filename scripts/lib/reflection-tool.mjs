@@ -50,10 +50,71 @@ function combineToolSummary(input, currentTurn) {
   return parts.join("\n");
 }
 
-export function turnFromReflectionToolInput(input = {}, env = process.env) {
+function countToolEntries(value) {
+  return String(value || "").split(/\n/).filter((line) => line.trim()).length;
+}
+
+function numberField(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return null;
+}
+
+function timestampField(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const direct = Number(value);
+    if (Number.isFinite(direct)) return direct;
+    const parsed = Date.parse(String(value));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function elapsedTurnMsFromInput(input, currentTurn, now = Date.now()) {
+  const explicitElapsed = numberField(
+    currentTurn.elapsed_turn_ms,
+    currentTurn.elapsedTurnMs,
+    input.elapsed_turn_ms,
+    input.elapsedTurnMs
+  );
+  if (explicitElapsed !== null && explicitElapsed >= 0) return explicitElapsed;
+
+  const startedAtMs = timestampField(
+    currentTurn.started_at_ms,
+    currentTurn.startedAtMs,
+    currentTurn.turn_started_at_ms,
+    currentTurn.turnStartedAtMs,
+    currentTurn.started_at,
+    currentTurn.startedAt,
+    currentTurn.turn_started_at,
+    currentTurn.turnStartedAt,
+    input.started_at_ms,
+    input.startedAtMs,
+    input.turn_started_at_ms,
+    input.turnStartedAtMs,
+    input.started_at,
+    input.startedAt,
+    input.turn_started_at,
+    input.turnStartedAt
+  );
+  if (startedAtMs === null) return undefined;
+
+  const elapsedMs = now - startedAtMs;
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return undefined;
+  if (elapsedMs > 6 * 60 * 60 * 1000) return undefined;
+  return elapsedMs;
+}
+
+export function turnFromReflectionToolInput(input = {}, env = process.env, now = Date.now()) {
   const currentTurn = input.current_turn && typeof input.current_turn === "object"
     ? input.current_turn
     : input;
+  const toolSummary = combineToolSummary(input, currentTurn);
+  const elapsedTurnMs = elapsedTurnMsFromInput(input, currentTurn, now);
 
   return {
     sessionId: firstString(currentTurn.session_id, currentTurn.sessionId, input.session_id, input.sessionId),
@@ -78,7 +139,9 @@ export function turnFromReflectionToolInput(input = {}, env = process.env) {
       input.assistantText,
       input.final_answer
     ),
-    toolSummary: combineToolSummary(input, currentTurn),
+    toolSummary,
+    toolCallCount: countToolEntries(toolSummary),
+    ...(elapsedTurnMs === undefined ? {} : { elapsedTurnMs }),
     rawEventCount: 0,
     source: REFLECTION_TOOL_NAME
   };

@@ -10,6 +10,7 @@ import { resolveReflectionSettings } from "./reflection-mode.mjs";
 import { createQueueDraft, listQueue, postQueueDraft, queueSummary, summarizeQueueDrafts } from "./toolkit.mjs";
 import {
   ensurePluginDataDir,
+  elapsedTurnMsFromStart,
   readFingerprints,
   rememberFingerprint,
   writeLatestReflection
@@ -119,7 +120,15 @@ export async function runReflectionFlow(options = {}) {
     });
   }
 
-  const sanitized = sanitizeTurn(turn, { maxChars: 12000 });
+  const elapsedTurnMs = turn.elapsedTurnMs !== null
+    && turn.elapsedTurnMs !== undefined
+    && Number.isFinite(Number(turn.elapsedTurnMs))
+    ? Number(turn.elapsedTurnMs)
+    : elapsedTurnMsFromStart(turn, env);
+  const turnWithGateMetadata = elapsedTurnMs === null
+    ? turn
+    : { ...turn, elapsedTurnMs };
+  const sanitized = sanitizeTurn(turnWithGateMetadata, { maxChars: 12000 });
   const sanitizedTurn = sanitized.turn;
   const heuristic = shouldRunReflection(sanitizedTurn);
 

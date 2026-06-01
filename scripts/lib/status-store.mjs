@@ -40,6 +40,10 @@ export function settingsPath(env = process.env) {
   return path.join(pluginDataDir(env), "settings.json");
 }
 
+export function latestTurnStartPath(env = process.env) {
+  return path.join(pluginDataDir(env), "latest-turn-start.json");
+}
+
 export function readLatestReflection(env = process.env) {
   return readJsonFile(latestReflectionPath(env), null);
 }
@@ -60,6 +64,30 @@ export function readSettings(env = process.env) {
 export function writeSettings(settings, env = process.env) {
   ensurePluginDataDir(env);
   writeJsonFile(settingsPath(env), settings);
+}
+
+export function readLatestTurnStart(env = process.env) {
+  return readJsonFile(latestTurnStartPath(env), null);
+}
+
+export function writeLatestTurnStart(start, env = process.env) {
+  ensurePluginDataDir(env);
+  writeJsonFile(latestTurnStartPath(env), start);
+}
+
+export function elapsedTurnMsFromStart(turn = {}, env = process.env, now = Date.now()) {
+  const start = readLatestTurnStart(env);
+  const startedAtMs = Number(start?.startedAtMs);
+  if (!Number.isFinite(startedAtMs)) return null;
+
+  const turnId = String(turn.turnId || turn.turn_id || "").trim();
+  const startTurnId = String(start.turnId || "").trim();
+  if (turnId && startTurnId && turnId !== startTurnId) return null;
+
+  const elapsedMs = now - startedAtMs;
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return null;
+  if (elapsedMs > 6 * 60 * 60 * 1000) return null;
+  return elapsedMs;
 }
 
 export function rememberFingerprint(fingerprint, env = process.env) {

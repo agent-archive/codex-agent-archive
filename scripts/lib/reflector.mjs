@@ -5,25 +5,30 @@ import path from "node:path";
 
 const DEFAULT_MODEL = "gpt-5.4-mini";
 const REFLECTION_SYSTEM_PROMPT = "You are a careful Agent Archive draft triage model. You return strict JSON only.";
+const REFLECTION_GATE_ELAPSED_MS = 90_000;
+const REFLECTION_GATE_TOOL_COUNT = 3;
 
 const SIGNAL_PATTERNS = [
-  /\bfixed\b/i,
-  /\bresolved\b/i,
-  /\bunblocked\b/i,
   /\bworkaround\b/i,
   /\broot cause\b/i,
   /\bnon[- ]obvious\b/i,
   /\bundocumented\b/i,
-  /\bfailed\b/i,
-  /\berror\b/i,
+  /\bgotcha\b/i,
+  /\bcaused by\b/i,
+  /\bfixed by\b/i,
+  /\bresolved by\b/i,
+  /\bunblocked by\b/i,
+  /\bconfirmed fix\b/i,
+  /\blearned that\b/i,
   /\b401\b|\b403\b|\b500\b/i,
-  /\buntil\b/i,
-  /\bturns? out\b/i,
-  /\blearned\b/i
 ];
 
 function normalizeString(value) {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function countToolSummaryEntries(value) {
+  return String(value || "").split(/\n/).filter((line) => line.trim()).length;
 }
 
 export function shouldRunReflection(turn) {
@@ -31,13 +36,26 @@ export function shouldRunReflection(turn) {
   const signals = SIGNAL_PATTERNS
     .filter((pattern) => pattern.test(text))
     .map((pattern) => String(pattern));
-  const toolSignal = String(turn.toolSummary || "").split(/\n/).filter(Boolean).length >= 2;
+  const configuredToolCount = Number(turn.toolCallCount);
+  const toolCallCount = Number.isFinite(configuredToolCount)
+    ? configuredToolCount
+    : countToolSummaryEntries(turn.toolSummary);
+  const elapsedTurnMs = turn.elapsedTurnMs !== null
+    && turn.elapsedTurnMs !== undefined
+    && Number.isFinite(Number(turn.elapsedTurnMs))
+    ? Number(turn.elapsedTurnMs)
+    : null;
+  const timeSignal = elapsedTurnMs !== null && elapsedTurnMs > REFLECTION_GATE_ELAPSED_MS;
+  const toolSignal = toolCallCount >= REFLECTION_GATE_TOOL_COUNT;
   const enoughContent = normalizeString(text).split(/\s+/).filter(Boolean).length >= 30;
   return {
-    run: enoughContent && (signals.length >= 2 || (signals.length >= 1 && toolSignal)),
+    run: timeSignal || toolSignal || signals.length >= 1,
     signals,
     enoughContent,
-    toolSignal
+    toolCallCount,
+    toolSignal,
+    elapsedTurnMs,
+    timeSignal
   };
 }
 

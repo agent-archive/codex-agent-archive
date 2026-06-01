@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { runReflectionTool, turnFromReflectionToolInput } from "../scripts/lib/reflection-tool.mjs";
+import { writeLatestTurnStart } from "../scripts/lib/status-store.mjs";
 import { fakeToolkitEnv } from "./helpers/fake-toolkit.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -79,8 +80,22 @@ test("turnFromReflectionToolInput accepts nested current_turn fields", () => {
   assert.match(turn.userText, /MCP 401/);
   assert.match(turn.assistantText, /missing bearer token/);
   assert.match(turn.toolSummary, /reran doctor/);
+  assert.equal(turn.toolCallCount, 2);
   assert.equal(turn.cwd, repoRoot);
   assert.equal(turn.turnId, "t1");
+});
+
+test("turnFromReflectionToolInput computes elapsed time from visible tool metadata", () => {
+  const turn = turnFromReflectionToolInput({
+    mode: "end_of_turn",
+    current_turn: {
+      user_request: "Please summarize the implementation.",
+      intended_answer: "Done.",
+      started_at_ms: 1000
+    }
+  }, { PWD: repoRoot }, 92001);
+
+  assert.equal(turn.elapsedTurnMs, 91001);
 });
 
 test("runReflectionTool writes latest status, queues drafts, and returns compact stats", async () => {
@@ -144,6 +159,87 @@ test("runReflectionTool skips low-signal turns when the heuristic gate is on", a
   assert.equal(result.status, "skipped");
   assert.match(result.reason, /reflection gate/);
   assert.equal(result.created, null);
+});
+
+test("runReflectionTool uses recorded turn start for time-based gate trigger", async () => {
+  const env = {
+    ...tempEnv(),
+    AGENT_ARCHIVE_REFLECTION_GATE_ENABLED: "true"
+  };
+  writeLatestTurnStart({
+    turnId: "elapsed-turn",
+    startedAt: new Date(Date.now() - 91000).toISOString(),
+    startedAtMs: Date.now() - 91000
+  }, env);
+
+  const result = await runReflectionTool({
+    mode: "end_of_turn",
+    current_turn: {
+      user_request: "Please summarize the implementation.",
+      intended_answer: "Done. The implementation is complete.",
+      tool_summary: "",
+      cwd: repoRoot,
+      turn_id: "elapsed-turn"
+    }
+  }, {
+    pluginRoot: repoRoot,
+    env
+  });
+
+  assert.equal(result.status, "draft_created");
+  const latest = JSON.parse(readFileSync(path.join(env.PLUGIN_DATA, "latest-reflection.json"), "utf8"));
+  assert.equal(latest.heuristic.timeSignal, true);
+  assert.ok(latest.heuristic.elapsedTurnMs > 90000);
+});
+
+test("runReflectionTool uses explicit visible-tool start metadata for time-based gate trigger", async () => {
+  const env = {
+    ...tempEnv(),
+    AGENT_ARCHIVE_REFLECTION_GATE_ENABLED: "true"
+  };
+
+  const result = await runReflectionTool({
+    mode: "end_of_turn",
+    current_turn: {
+      user_request: "Please summarize the implementation.",
+      intended_answer: "Done. The implementation is complete.",
+      tool_summary: "",
+      cwd: repoRoot,
+      turn_id: "elapsed-turn",
+      started_at_ms: Date.now() - 91000
+    }
+  }, {
+    pluginRoot: repoRoot,
+    env
+  });
+
+  assert.equal(result.status, "draft_created");
+  const latest = JSON.parse(readFileSync(path.join(env.PLUGIN_DATA, "latest-reflection.json"), "utf8"));
+  assert.equal(latest.heuristic.timeSignal, true);
+  assert.ok(latest.heuristic.elapsedTurnMs > 90000);
+});
+
+test("UserPromptSubmit hook records turn start timestamp", () => {
+  const pluginData = mkdtempSync(path.join(os.tmpdir(), "codex-agent-archive-inject-"));
+  const result = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "inject-reflection-tool.mjs")], {
+    input: JSON.stringify({ hook_event_name: "UserPromptSubmit", turn_id: "turn-start-test", session_id: "s1", prompt: "hello" }),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PLUGIN_DATA: pluginData,
+      AGENT_ARCHIVE_REFLECTION_VISIBILITY: "tool"
+    }
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const turnStart = JSON.parse(readFileSync(path.join(pluginData, "latest-turn-start.json"), "utf8"));
+  assert.equal(turnStart.turnId, "turn-start-test");
+  assert.equal(turnStart.sessionId, "s1");
+  assert.ok(Number.isFinite(turnStart.startedAtMs));
+
+  const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+  assert.match(context, /turn_id: "turn-start-test"/);
+  assert.match(context, /started_at_ms: \d+/);
 });
 
 test("UserPromptSubmit hook injects stuck-search guidance for every visibility", () => {

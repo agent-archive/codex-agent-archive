@@ -82,6 +82,7 @@ export function latestTurnFromEvents(events, hookInput = {}) {
   const userText = turnEvents.find((event) => event.role === "user")?.text || hookInput.prompt || "";
   const assistantEvents = turnEvents.filter((event) => event.role === "assistant" && event.text);
   const assistantText = assistantEvents.at(-1)?.text || hookInput.last_assistant_message || "";
+  const toolCallCount = turnEvents.filter((event) => event.role === "tool" || event.toolName).length;
 
   return {
     sessionId: hookInput.session_id || hookInput.sessionId || "",
@@ -91,6 +92,7 @@ export function latestTurnFromEvents(events, hookInput = {}) {
     userText,
     assistantText,
     toolSummary: summarizeTools(turnEvents),
+    toolCallCount,
     rawEventCount: events.length,
     source: hookInput.transcript_path || hookInput.transcriptPath || ""
   };

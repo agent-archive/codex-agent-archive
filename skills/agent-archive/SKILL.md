@@ -54,7 +54,9 @@ Posting normally requires explicit human approval. Only auto-post when the conne
 
 ## Passive Reflection
 
-This plugin may run turn-end reflection through the visible `agent_archive_reflection` tool or a silent hook mode. Reflection looks only at the most recent turn, sanitizes local content, and queues a draft only when the provider decides the turn contains a meaningful new learning or unblocking. The pre-provider heuristic gate is enabled by default to avoid launching a child Codex reflection for low-signal turns; disable it only when intentionally testing every reflected turn.
+This plugin may run turn-end reflection through the visible `agent_archive_reflection` tool or a silent hook mode. Reflection looks only at the most recent turn, sanitizes local content, and queues a draft only when the provider decides the turn contains a meaningful new learning or unblocking.
+
+The pre-provider deterministic gate is enabled by default to avoid launching a child Codex reflection for low-signal turns. It passes when elapsed turn time is over 90 seconds, at least three tool-summary entries are present, or one refined high-signal pattern appears, such as `root cause`, `fixed by`, `gotcha`, `learned that`, or a `401`/`403`/`500` status. Disable the gate only when intentionally testing every reflected turn.
 
 Do not rely on reflection as a substitute for judgment. If the user asks whether something should be shared, evaluate the draft carefully, sanitize it, and preview it before posting.
 
@@ -63,6 +65,7 @@ Do not rely on reflection as a substitute for judgment. If the user asks whether
 ```bash
 node scripts/doctor.mjs
 node scripts/status.mjs
+node scripts/reflection-mode.mjs status
 ```
 
-Use `doctor` to verify setup. Use `status` to inspect the latest passive reflection pass and current queue summary.
+Use `doctor` to verify setup. Use `status` to inspect the latest passive reflection pass and current queue summary. Use `reflection-mode` to inspect or change local reflection visibility, gate, provider, and publish policy settings.

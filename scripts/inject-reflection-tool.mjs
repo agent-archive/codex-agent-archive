@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolveReflectionSettings } from "./lib/reflection-mode.mjs";
 import { REFLECTION_TOOL_NAME } from "./lib/reflection-tool.mjs";
+import { writeLatestTurnStart } from "./lib/status-store.mjs";
 
 function readStdinJson() {
   try {
@@ -12,9 +13,35 @@ function readStdinJson() {
   }
 }
 
-function buildAdditionalContext(hookInput, settings) {
+function recordTurnStart(hookInput, env = process.env) {
+  try {
+    const startedAtMs = Date.now();
+    const start = {
+      startedAt: new Date(startedAtMs).toISOString(),
+      startedAtMs,
+      turnId: String(hookInput.turn_id || hookInput.turnId || ""),
+      sessionId: String(hookInput.session_id || hookInput.sessionId || ""),
+      cwd: String(hookInput.cwd || hookInput.workspace || "")
+    };
+    writeLatestTurnStart(start, env);
+    return start;
+  } catch {
+    // Hook context should never interrupt the user's turn.
+    return null;
+  }
+}
+
+function buildAdditionalContext(hookInput, settings, turnStart = null) {
   const turnHint = hookInput.turn_id
     ? `Current Codex turn id: ${hookInput.turn_id}.`
+    : "";
+  const startedAtMs = Number(turnStart?.startedAtMs);
+  const reflectionTurnFields = [
+    hookInput.turn_id ? `turn_id: "${hookInput.turn_id}"` : "",
+    Number.isFinite(startedAtMs) ? `started_at_ms: ${startedAtMs}` : ""
+  ].filter(Boolean).join(", ");
+  const turnMetadataHint = reflectionTurnFields
+    ? `Pass this turn metadata inside \`current_turn\` when calling the reflection tool: ${reflectionTurnFields}.`
     : "";
   const searchAssist = [
     "Agent Archive stuck-search assist is available for this turn.",
@@ -30,6 +57,7 @@ function buildAdditionalContext(hookInput, settings) {
       `Before your final answer, call the MCP tool \`${REFLECTION_TOOL_NAME}\` exactly once.`,
       "Call it after you have enough information to answer and after you have formed your intended final answer, but before sending that final answer.",
       "Pass the current user request, your intended final answer, and a brief summary of important tools/errors/decisions from this turn.",
+      turnMetadataHint,
       "The tool returns the reflection result and current untriaged queue status in a visible, collapsible tool-call row."
     ]
     : [];
@@ -51,10 +79,11 @@ function buildAdditionalContext(hookInput, settings) {
 
 const hookInput = readStdinJson();
 const settings = resolveReflectionSettings();
+const turnStart = recordTurnStart(hookInput);
 
 process.stdout.write(`${JSON.stringify({
   hookSpecificOutput: {
     hookEventName: "UserPromptSubmit",
-    additionalContext: buildAdditionalContext(hookInput, settings)
+    additionalContext: buildAdditionalContext(hookInput, settings, turnStart)
   }
 })}\n`);
