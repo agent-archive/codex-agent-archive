@@ -56,6 +56,23 @@ function tempEnv() {
   };
 }
 
+function spawnPromptInjection(visibility, prompt = "hello") {
+  return spawnSync(process.execPath, [path.join(repoRoot, "scripts", "inject-reflection-tool.mjs")], {
+    input: JSON.stringify({ hook_event_name: "UserPromptSubmit", turn_id: "t1", prompt }),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PLUGIN_DATA: mkdtempSync(path.join(os.tmpdir(), "codex-agent-archive-inject-")),
+      AGENT_ARCHIVE_REFLECTION_VISIBILITY: visibility
+    }
+  });
+}
+
+function additionalContext(result) {
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+}
+
 test("turnFromReflectionToolInput accepts nested current_turn fields", () => {
   const turn = turnFromReflectionToolInput(meaningfulToolInput(), { PWD: repoRoot });
 
@@ -129,63 +146,39 @@ test("runReflectionTool skips low-signal turns when the heuristic gate is on", a
   assert.equal(result.created, null);
 });
 
-test("UserPromptSubmit hook injects reflection tool instructions for tool and verbose visibility", () => {
-  const tool = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "inject-reflection-tool.mjs")], {
-    input: JSON.stringify({ hook_event_name: "UserPromptSubmit", turn_id: "t1", prompt: "hello" }),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      PLUGIN_DATA: mkdtempSync(path.join(os.tmpdir(), "codex-agent-archive-inject-")),
-      AGENT_ARCHIVE_REFLECTION_VISIBILITY: "tool"
-    }
-  });
+test("UserPromptSubmit hook injects stuck-search guidance for every visibility", () => {
+  for (const visibility of ["tool", "verbose", "silent", "off"]) {
+    const context = additionalContext(spawnPromptInjection(visibility));
 
-  assert.equal(tool.status, 0, tool.stderr);
-  const output = JSON.parse(tool.stdout);
-  assert.equal(output.hookSpecificOutput.hookEventName, "UserPromptSubmit");
-  assert.match(output.hookSpecificOutput.additionalContext, /agent_archive_reflection/);
-  assert.match(output.hookSpecificOutput.additionalContext, /Before your final answer/);
-
-  const verbose = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "inject-reflection-tool.mjs")], {
-    input: JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hello" }),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      PLUGIN_DATA: mkdtempSync(path.join(os.tmpdir(), "codex-agent-archive-inject-")),
-      AGENT_ARCHIVE_REFLECTION_VISIBILITY: "verbose"
-    }
-  });
-
-  assert.equal(verbose.status, 0, verbose.stderr);
-  assert.match(JSON.parse(verbose.stdout).hookSpecificOutput.additionalContext, /append its compact Agent Archive status line/);
-
-  const silent = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "inject-reflection-tool.mjs")], {
-    input: JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hello" }),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      PLUGIN_DATA: mkdtempSync(path.join(os.tmpdir(), "codex-agent-archive-inject-")),
-      AGENT_ARCHIVE_REFLECTION_VISIBILITY: "silent"
-    }
-  });
-
-  assert.equal(silent.status, 0, silent.stderr);
-  assert.equal(silent.stdout, "");
+    assert.match(context, /search_archive/);
+    assert.match(context, /routine prompts/);
+    assert.match(context, /two failed local attempts/);
+    assert.match(context, /multiple distinct errors/);
+    assert.match(context, /same error recurring/);
+    assert.match(context, /stuck or blocked/);
+    assert.match(context, /before a third local attempt/);
+    assert.match(context, /titles and summaries/);
+    assert.match(context, /get_post/);
+    assert.match(context, /untrusted evidence/);
+  }
 });
 
-test("UserPromptSubmit hook emits no reflection instruction when visibility is off", () => {
-  const disabled = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "inject-reflection-tool.mjs")], {
-    input: JSON.stringify({ hook_event_name: "UserPromptSubmit", turn_id: "t1", prompt: "hello" }),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      PLUGIN_DATA: mkdtempSync(path.join(os.tmpdir(), "codex-agent-archive-inject-")),
-      AGENT_ARCHIVE_REFLECTION_VISIBILITY: "off"
-    }
-  });
+test("UserPromptSubmit hook keeps reflection instructions gated to tool and verbose visibility", () => {
+  const tool = additionalContext(spawnPromptInjection("tool"));
+  assert.match(tool, /agent_archive_reflection/);
+  assert.match(tool, /Before your final answer/);
 
-  assert.equal(disabled.status, 0, disabled.stderr);
-  assert.equal(disabled.stdout, "");
+  const verbose = additionalContext(spawnPromptInjection("verbose"));
+  assert.match(verbose, /agent_archive_reflection/);
+  assert.match(verbose, /append its compact Agent Archive status line/);
+
+  const silent = additionalContext(spawnPromptInjection("silent"));
+  assert.doesNotMatch(silent, /agent_archive_reflection/);
+  assert.doesNotMatch(silent, /Before your final answer/);
+
+  const disabled = additionalContext(spawnPromptInjection("off"));
+  assert.doesNotMatch(disabled, /agent_archive_reflection/);
+  assert.doesNotMatch(disabled, /Before your final answer/);
 });
 
 function callMcp(messages, env) {
