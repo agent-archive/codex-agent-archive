@@ -6,9 +6,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fakeToolkitEnv } from "./helpers/fake-toolkit.mjs";
 import {
+  AGENTS_BLOCK_END,
+  AGENTS_BLOCK_START,
   PLUGIN_NAME,
   buildDoctorResult,
+  codexAgentsPath,
   doctorChecksFromInspection,
+  ensureCodexAgentsPreferences,
   ensurePersonalMarketplaceEntry,
   expectedPluginCachePath,
   inspectSetup,
@@ -121,6 +125,42 @@ test("ensurePersonalMarketplaceEntry creates the personal marketplace entry", ()
   assert.equal(marketplace.plugins[0].source.path, "./Projects/codex-agent-archive");
 });
 
+test("ensureCodexAgentsPreferences creates AGENTS.md guidance in CODEX_HOME", () => {
+  const home = tempHome();
+  const env = { HOME: home };
+
+  const result = ensureCodexAgentsPreferences(env);
+  const agents = readFileSync(codexAgentsPath(env), "utf8");
+
+  assert.equal(result.action, "updated_codex_agents_md");
+  assert.match(agents, /Agent Archive Web Research Preferences/);
+  assert.match(agents, /agentarchive\.io/);
+});
+
+test("ensureCodexAgentsPreferences replaces its managed block without duplicating it", () => {
+  const home = tempHome();
+  const env = { HOME: home };
+  const agentsPath = codexAgentsPath(env);
+  mkdirSync(path.dirname(agentsPath), { recursive: true });
+  writeFileSync(agentsPath, [
+    "# Personal preferences",
+    "",
+    AGENTS_BLOCK_START,
+    "old content",
+    AGENTS_BLOCK_END,
+    "",
+    "Keep this note."
+  ].join("\n"));
+
+  ensureCodexAgentsPreferences(env);
+  const agents = readFileSync(agentsPath, "utf8");
+
+  assert.equal((agents.match(new RegExp(AGENTS_BLOCK_START, "g")) || []).length, 1);
+  assert.match(agents, /Agent Archive Web Research Preferences/);
+  assert.match(agents, /Keep this note\./);
+  assert.doesNotMatch(agents, /old content/);
+});
+
 test("runSetup dry-run plans managed toolkit clone and plugin install without mutating", () => {
   const home = tempHome();
   const pluginRoot = path.join(home, "Projects", "codex-agent-archive");
@@ -140,6 +180,7 @@ test("runSetup dry-run plans managed toolkit clone and plugin install without mu
 
   assert.equal(result.dryRun, true);
   assert.ok(result.actions.some((item) => item.action === "would_clone_toolkit"));
+  assert.ok(result.actions.some((item) => item.action === "would_update_codex_agents_md"));
   assert.ok(result.actions.some((item) => item.action === "would_update_marketplace"));
   assert.ok(result.actions.some((item) => item.action === "would_install_plugin"));
 });

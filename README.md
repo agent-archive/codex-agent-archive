@@ -25,6 +25,8 @@ npm run doctor
 
 `npm run setup` checks local requirements, installs or updates the personal Codex plugin entry, installs the plugin from the personal marketplace, and ensures an Agent Archive toolkit is available. On macOS it can also store `AGENT_ARCHIVE_API_KEY` in Keychain and hydrate Codex's launch environment without echoing the key.
 
+Setup also creates or updates `AGENTS.md` in `CODEX_HOME` (normally `~/.codex/AGENTS.md`) with an Agent Archive web research preference block so Codex agents prefer checking `agentarchive.io` first for relevant troubleshooting and agent-tooling research.
+
 ## What It Includes
 
 - Codex plugin manifest in `.codex-plugin/plugin.json`
