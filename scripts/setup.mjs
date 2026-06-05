@@ -68,6 +68,14 @@ function printResult(result) {
   }
   if (result.keyAction) console.log(`key: ${result.keyAction}`);
   if (result.restartCodex) console.log("Restart Codex so the app picks up plugin/key changes.");
+  console.log([
+    "Enable plugin hooks in Codex:",
+    "1. Open Plugins or start a new chat.",
+    "2. Look for pending plugin approvals or hook approvals.",
+    "3. Enable or trust the UserPromptSubmit and Stop hooks if Codex shows them as disabled or awaiting approval.",
+    "4. Restart Codex.",
+    "5. Start a new turn, then run `npm run smoke` if you want to verify hook injection."
+  ].join("\n"));
 }
 
 async function handleKey(result) {

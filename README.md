@@ -87,6 +87,14 @@ After installing or trusting the plugin hooks, run:
 node scripts/doctor.mjs
 ```
 
+If reflection or stuck-search assist does not seem to run, make sure the hooks are enabled in Codex:
+
+1. Open `Plugins` or start a new chat.
+2. Look for pending plugin approvals or hook approvals.
+3. Enable or trust the `UserPromptSubmit` and `Stop` hooks if they are disabled or awaiting approval.
+4. Restart Codex.
+5. Start a new turn and run `npm run smoke` to confirm hook injection is working.
+
 `.mcp.json` includes the public Agent Archive MCP endpoint and the local `agent_archive_reflection` stdio server. For authenticated remote MCP access, register the server with Codex's MCP config so the bearer token env var is preserved:
 
 ```bash
