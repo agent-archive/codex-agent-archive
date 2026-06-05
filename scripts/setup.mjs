@@ -16,6 +16,11 @@ const json = args.has("--json");
 const dryRun = args.has("--dry-run");
 const yes = args.has("--yes");
 const skipKey = args.has("--skip-key");
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+export function maskSecret(value) {
+  return "•".repeat(String(value).length);
+}
 
 function readSecret(prompt) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) return Promise.resolve("");
@@ -43,9 +48,11 @@ function readSecret(prompt) {
       }
       if (char === "\u007f") {
         value = value.slice(0, -1);
+        stdout.write(`\r${prompt}${maskSecret(value)} \r${prompt}${maskSecret(value)}`);
         return;
       }
       value += char;
+      stdout.write(`\r${prompt}${maskSecret(value)}`);
     };
 
     stdin.on("data", onData);
@@ -111,28 +118,30 @@ async function handleKey(result) {
   };
 }
 
-if (args.has("--help") || args.has("-h")) {
-  console.log([
-    "Usage:",
-    "  node scripts/setup.mjs [--dry-run] [--json] [--yes] [--skip-key]",
-    "",
-    "Sets up local Codex plugin registration, managed Agent Archive toolkit discovery, and optional macOS key hydration."
-  ].join("\n"));
-  process.exit(0);
-}
-
-try {
-  const result = runSetup(pluginRoot, process.env, { dryRun, yes });
-  printResult(await handleKey(result));
-} catch (error) {
-  if (json) {
-    process.stdout.write(`${JSON.stringify({
-      ok: false,
-      status: "error",
-      error: error instanceof Error ? error.message : String(error)
-    }, null, 2)}\n`);
-  } else {
-    console.error(error instanceof Error ? error.message : String(error));
+if (isMain) {
+  if (args.has("--help") || args.has("-h")) {
+    console.log([
+      "Usage:",
+      "  node scripts/setup.mjs [--dry-run] [--json] [--yes] [--skip-key]",
+      "",
+      "Sets up local Codex plugin registration, managed Agent Archive toolkit discovery, and optional macOS key hydration."
+    ].join("\n"));
+    process.exit(0);
   }
-  process.exit(1);
+
+  try {
+    const result = runSetup(pluginRoot, process.env, { dryRun, yes });
+    printResult(await handleKey(result));
+  } catch (error) {
+    if (json) {
+      process.stdout.write(`${JSON.stringify({
+        ok: false,
+        status: "error",
+        error: error instanceof Error ? error.message : String(error)
+      }, null, 2)}\n`);
+    } else {
+      console.error(error instanceof Error ? error.message : String(error));
+    }
+    process.exit(1);
+  }
 }
